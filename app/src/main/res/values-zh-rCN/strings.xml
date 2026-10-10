@@ -936,6 +936,11 @@
     <string name="settings_search_item_merge_adjacent">合并同行邻接 box</string>
     <string name="settings_search_item_loop_interval">自动循环间隔</string>
     <string name="settings_search_item_a11y_volume">音量键触发</string>
+    <string name="settings_search_item_a11y_text_source">精准取字（无障碍）</string>
+    <string name="settings_a11y_text_source_label">精准取字（无障碍）</string>
+    <string name="settings_a11y_text_source_hint">直接读取界面控件里的文字：不截图、不跑 OCR、不需要截屏权限，不存在识别错误，翻译几乎立刻开始。\n只对真正有文本节点的应用有效（聊天 / 浏览器 / 新闻 / 设置等）；游戏、漫画、视觉小说的文字是画上去的像素，读不到，这些界面会自动回退到下方的 OCR 引擎。循环翻译仍走 OCR。</string>
+    <string name="settings_a11y_text_source_fallback">未读到界面文字，已回退截图 OCR</string>
+    <string name="settings_a11y_text_source_no_capture">未读到界面文字，且截屏服务未运行</string>
     <string name="settings_search_item_api_timeout">API 请求超时</string>
     <string name="settings_search_item_youdao_pictrans">有道图片翻译（AppKey / Secret）</string>
     <string name="settings_search_item_google">谷歌翻译</string>

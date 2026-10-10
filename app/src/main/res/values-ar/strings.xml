@@ -1353,6 +1353,11 @@
     <string name="settings_search_btn">بحث الإعدادات</string>
     <string name="settings_search_close">إغلاق البحث</string>
     <string name="settings_search_item_a11y_volume">مشغل مفتاح الصوت</string>
+    <string name="settings_search_item_a11y_text_source">قراءة دقيقة للنص (إمكانية الوصول)</string>
+    <string name="settings_a11y_text_source_label">قراءة دقيقة للنص (إمكانية الوصول)</string>
+    <string name="settings_a11y_text_source_hint">يقرأ النص مباشرة من عناصر الواجهة: بلا لقطة شاشة وبلا OCR وبلا إذن التسجيل، فلا يوجد خطأ في التعرّف ويبدأ الترجمة فورًا.\nيعمل فقط مع التطبيقات التي تُعرّض نصًا حقيقيًا (الدردشة والمتصفح والأخبار والإعدادات)؛ أما الألعاب والمانجا والروايات المصوّرة فالنص فيها مرسوم كبكسلات ولا يمكن قراءته بهذه الطريقة، لذا تعود تلقائيًا إلى محرك OCR أدناه. الترجمة المتكررة لا تزال تستخدم OCR.</string>
+    <string name="settings_a11y_text_source_fallback">لا يوجد نص مقروء على الشاشة؛ تم الرجوع إلى OCR بلقطة الشاشة</string>
+    <string name="settings_a11y_text_source_no_capture">لا يوجد نص مقروء على الشاشة، وخدمة التسجيل غير قيد التشغيل</string>
     <string name="settings_search_item_allow_wrap">السماح بتضمين الترجمة</string>
     <string name="settings_search_item_alpha">الشفافية</string>
     <string name="settings_search_item_anthropic_api_key">مفتاح API لـ Anthropic</string>

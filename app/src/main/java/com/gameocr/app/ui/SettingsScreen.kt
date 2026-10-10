@@ -708,6 +708,7 @@ fun SettingsScreen(
     var preInvert by remember { mutableStateOf(false) }
     var preBinarize by remember { mutableStateOf(false) }
     var a11yVolume by remember { mutableStateOf(false) }
+    var a11yTextSource by remember { mutableStateOf(false) }
     var floatingSize by remember { mutableStateOf(56f) }
     var floatingAlpha by remember { mutableStateOf(Settings().floatingButtonAlpha) }
     var floatingSnapEdge by remember { mutableStateOf(true) }
@@ -1149,6 +1150,7 @@ fun SettingsScreen(
         llmMirrorChoice = s.localLlmMirror
         llmMirror = s.localLlmMirrorUrl
         a11yVolume = s.a11yVolumeTrigger
+        a11yTextSource = s.a11yTextSourceEnabled
         floatingSize = s.floatingButtonSizeDp.toFloat()
         floatingAlpha = normalizedFloatingButtonAlpha(s.floatingButtonAlpha)
         floatingSnapEdge = s.floatingButtonSnapToEdge
@@ -1503,6 +1505,7 @@ fun SettingsScreen(
         tencentOcrEndpoint = tencentEndpoint,
         tencentOcrLanguage = tencentLanguage,
         a11yVolumeTrigger = a11yVolume,
+        a11yTextSourceEnabled = a11yTextSource,
         translatorEngine = effectiveTranslatorEngine(),
         deeplApiKey = deeplKey,
         deeplPro = deeplPro,
@@ -1752,6 +1755,7 @@ fun SettingsScreen(
             tencentLanguage = tencentLanguage,
             preprocess = PreprocessOptions(preUpscale, preInvert, preBinarize),
             a11yVolume = a11yVolume,
+            a11yTextSource = a11yTextSource,
             floatingButtonSizeDp = floatingSize.toInt(),
             floatingButtonAlpha = floatingAlpha,
             floatingButtonSnapToEdge = floatingSnapEdge,
@@ -2927,6 +2931,7 @@ fun SettingsScreen(
             preInvert = s.preprocess.invert
             preBinarize = s.preprocess.binarize
             a11yVolume = s.a11yVolumeTrigger
+            a11yTextSource = s.a11yTextSourceEnabled
             floatingSize = s.floatingButtonSizeDp.toFloat()
             floatingAlpha = normalizedFloatingButtonAlpha(s.floatingButtonAlpha)
             floatingSnapEdge = s.floatingButtonSnapToEdge
@@ -4777,6 +4782,13 @@ fun SettingsScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.alpha(if (ocrSectionDisabled) 0.5f else 1f)
                 ) {
+                SwitchRow(
+                    label = stringResource(R.string.settings_a11y_text_source_label),
+                    checked = a11yTextSource,
+                    enabled = !ocrSectionDisabled,
+                    helpText = stringResource(R.string.settings_a11y_text_source_hint),
+                ) { a11yTextSource = it }
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                 // Manual chips and automatic routing share the same names, groups and order.
                 OcrEngineGroup.entries.forEach { group ->
                     Text(
@@ -6550,6 +6562,8 @@ fun SettingsScreen(
                     settingsSearchEntryId(R.string.settings_search_item_source_lang) to sourceLang,
                     settingsSearchEntryId(R.string.settings_search_item_target_lang) to targetLang,
                     settingsSearchEntryId(R.string.settings_search_item_ocr_switch) to ocrEngine.name,
+                    settingsSearchEntryId(R.string.settings_search_item_a11y_text_source) to
+                        if (a11yTextSource) "on" else "off",
                     settingsSearchEntryId(R.string.settings_translation_output_layout_label) to
                         "${translationOutputLayout.name} ${translationOutputDirection.name}",
                     settingsSearchEntryId(R.string.settings_search_item_render_mode) to renderMode.name,
@@ -9202,6 +9216,7 @@ private val SEARCH_TARGET_PROMPTS = intArrayOf(
     R.string.settings_openai_request_options_title,
 )
 private val SEARCH_TARGET_OCR_ENGINE = intArrayOf(
+    R.string.settings_search_item_a11y_text_source,
     R.string.settings_search_item_ocr_switch,
     R.string.settings_search_item_paddle_ai_studio,
     R.string.settings_search_item_paddle_download,
@@ -9600,6 +9615,15 @@ private val SETTING_ITEMS: List<SearchEntry> = listOfNotNull(
     SearchEntry(SectionKeys.TRANSLATE, R.string.settings_section_translator, R.string.settings_search_item_local_llm_model, listOf("local llm", "gguf", "hy-mt", "sakura", "model download", "model import", "端侧模型", "本地模型", "模型下载", "模型导入")),
 
     // —— OCR 引擎 ——
+    SearchEntry(
+        SectionKeys.OCR,
+        R.string.settings_section_ocr,
+        R.string.settings_search_item_a11y_text_source,
+        listOf(
+            "无障碍", "a11y", "accessibility", "精准取字", "取字", "免截图", "免 OCR",
+            "no ocr", "text source", "节点", "控件", "文本节点",
+        ),
+    ),
     SearchEntry(
         SectionKeys.OCR,
         R.string.settings_section_ocr,

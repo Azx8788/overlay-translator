@@ -167,6 +167,8 @@ import com.gameocr.app.trigger.FocusedInputCaptureResult
 import com.gameocr.app.trigger.FocusedInputReadError
 import com.gameocr.app.trigger.FocusedInputReplaceResult
 import com.gameocr.app.trigger.GameOcrAccessibilityService
+import com.gameocr.app.textsource.A11yTextGroupingPolicy
+import com.gameocr.app.textsource.A11yTextReadResult
 import com.gameocr.app.tts.TtsEngine
 import com.gameocr.app.util.InferenceTiming
 import com.gameocr.app.util.RuntimePerformanceDiagnostics
@@ -1108,45 +1110,95 @@ class CaptureService : Service() {
         }
         try {
             logVerticalDiag(diagId, "wordSelect start rect=${rect.toDiagString()}")
-            val shotter = screenshotter ?: run {
-                logVerticalDiag(diagId, "skip: screenshotter is null")
-                restoreCaptureChromeOnce(showLoading = false)
-                return
-            }
             val settings = settingsRepository.get()
             val screenNow = physicalDisplaySize(this@CaptureService)
-            val selectedRegion = CaptureRegion(rect.left, rect.top, rect.right, rect.bottom)
-            floatingWindowPreparation = prepareFloatingWindowForCapture(
+            // 无障碍取字命中就不再截屏；读不到（或开关关闭）时继续走下面的截图 OCR。
+            var a11yBlocks = readA11yTextBlocks(
                 settings = settings,
-                captureRegion = selectedRegion,
+                screenWidth = screenNow.width,
+                screenHeight = screenNow.height,
+                filterRegion = Rect(rect),
+                originX = rect.left,
+                originY = rect.top,
                 diagId = diagId,
             )
-            if (floatingWindowPreparation.hidden) delay(CAPTURE_CHROME_SETTLE_MS)
-            var full = captureScreenshotWithTiming(shotter, diagId)
-            restoreFloatingWindowAfterCapture(floatingWindowPreparation)
-            floatingWindowPreparation = floatingWindowPreparation.copy(hidden = false)
-            if (full == null) {
-                restoreCaptureChromeOnce(showLoading = false)
-                val msg = getString(R.string.toast_capture_failed)
-                mainScope.launch { overlay?.showErrorHint(msg) }
-                return
+            if (a11yBlocks?.isEmpty() == true && screenshotter != null) {
+                logVerticalDiag(diagId, "a11y text source empty; fallback to screenshot OCR")
+                a11yBlocks = null
             }
-            val captureMask = mapOverlayBoundsToCapture(
-                bounds = floatingWindowPreparation.boundsForMask,
-                overlayWidth = screenNow.width,
-                overlayHeight = screenNow.height,
-                captureWidth = full.width,
-                captureHeight = full.height,
-            )
-            if (captureMask != null) {
-                full = maskFloatingWindowFromCapture(full, captureMask)
+            val a11ySource = a11yBlocks
+            var cropped: Bitmap? = null
+            if (a11ySource == null) {
+                val shotter = screenshotter ?: run {
+                    logVerticalDiag(diagId, "skip: screenshotter is null")
+                    restoreCaptureChromeOnce(showLoading = false)
+                    return
+                }
+                val selectedRegion = CaptureRegion(rect.left, rect.top, rect.right, rect.bottom)
+                floatingWindowPreparation = prepareFloatingWindowForCapture(
+                    settings = settings,
+                    captureRegion = selectedRegion,
+                    diagId = diagId,
+                )
+                if (floatingWindowPreparation.hidden) delay(CAPTURE_CHROME_SETTLE_MS)
+                var full = captureScreenshotWithTiming(shotter, diagId)
+                restoreFloatingWindowAfterCapture(floatingWindowPreparation)
+                floatingWindowPreparation = floatingWindowPreparation.copy(hidden = false)
+                if (full == null) {
+                    restoreCaptureChromeOnce(showLoading = false)
+                    val msg = getString(R.string.toast_capture_failed)
+                    mainScope.launch { overlay?.showErrorHint(msg) }
+                    return
+                }
+                val captureMask = mapOverlayBoundsToCapture(
+                    bounds = floatingWindowPreparation.boundsForMask,
+                    overlayWidth = screenNow.width,
+                    overlayHeight = screenNow.height,
+                    captureWidth = full.width,
+                    captureHeight = full.height,
+                )
+                if (captureMask != null) {
+                    full = maskFloatingWindowFromCapture(full, captureMask)
+                    logVerticalDiag(
+                        diagId,
+                        "wordSelect floating window preserved and masked bounds=$captureMask"
+                    )
+                }
+                logWordSelectPerf("screenshot_ready", "frame=${full.width}x${full.height}")
+                restoreCaptureChromeOnce(showLoading = false)
+                val fullStats = sampleBitmapFrameStats(full)
                 logVerticalDiag(
                     diagId,
-                    "wordSelect floating window preserved and masked bounds=$captureMask"
+                    "screenshot full=${full.width}x${full.height} stats=${fullStats.toDiagString()}"
                 )
+                logCaptureGeometry(diagId, "wordSelect", full)
+                logBlankLikeFrame(diagId, "screenshot", fullStats)
+                // 用 word-select rect 裁剪，**不**走 settings.captureRegion——划词是一次性独立选区
+                cropped = try {
+                    cropRect(full, rect)
+                } catch (t: Throwable) {
+                    full.recycle()
+                    throw t
+                }
+                full.recycle()
+                if (cropped == null) {
+                    dismissActiveCard()
+                    val msg = getString(R.string.word_card_no_text)
+                    mainScope.launch { overlay?.showErrorHint(msg) }
+                    return
+                }
+                logWordSelectPerf("crop_ready", "crop=${cropped.width}x${cropped.height}")
+                val croppedStats = sampleBitmapFrameStats(cropped)
+                logVerticalDiag(
+                    diagId,
+                    "wordSelect workBitmap=${cropped.width}x${cropped.height} " +
+                        "rect=${rect.toDiagString()} stats=${croppedStats.toDiagString()}"
+                )
+                logBlankLikeFrame(diagId, "wordSelect workBitmap", croppedStats)
+            } else {
+                // 无障碍取字不截屏，也就没有"截屏后恢复悬浮球"这一步，这里补上同一时序。
+                restoreCaptureChromeOnce(showLoading = false)
             }
-            logWordSelectPerf("screenshot_ready", "frame=${full.width}x${full.height}")
-            restoreCaptureChromeOnce(showLoading = false)
             var sourceLanguageEvidence = emptyList<com.gameocr.app.tts.TtsLanguageEvidence>()
             val sourceSpeech = wordSelectTtsAction(
                 settings = settings,
@@ -1199,72 +1251,63 @@ class CaptureService : Service() {
             }
             activeCard = card
             logWordSelectPerf("card_visible", "phase=recognizing")
-            val fullStats = sampleBitmapFrameStats(full)
-            logVerticalDiag(
-                diagId,
-                "screenshot full=${full.width}x${full.height} stats=${fullStats.toDiagString()}"
-            )
-            logCaptureGeometry(diagId, "wordSelect", full)
-            logBlankLikeFrame(diagId, "screenshot", fullStats)
-            // 用 word-select rect 裁剪，**不**走 settings.captureRegion——划词是一次性独立选区
-            val cropped = try {
-                cropRect(full, rect)
-            } catch (t: Throwable) {
-                full.recycle()
-                throw t
-            }
-            full.recycle()
-            if (cropped == null) {
-                dismissActiveCard()
-                val msg = getString(R.string.word_card_no_text)
-                mainScope.launch { overlay?.showErrorHint(msg) }
-                return
-            }
-            logWordSelectPerf("crop_ready", "crop=${cropped.width}x${cropped.height}")
-            val croppedStats = sampleBitmapFrameStats(cropped)
-            logVerticalDiag(
-                diagId,
-                "wordSelect workBitmap=${cropped.width}x${cropped.height} " +
-                    "rect=${rect.toDiagString()} stats=${croppedStats.toDiagString()}"
-            )
-            logBlankLikeFrame(diagId, "wordSelect workBitmap", croppedStats)
             val ocrStartedAt = System.currentTimeMillis()
-            logWordSelectPerf("ocr_started", "engine=${settings.ocrEngine.name}")
-            val ocrBlocks = try {
-                ocrEngine.recognize(cropped, settings.ocrEngine,
-                    com.gameocr.app.capture.wordSelectOcrSettings(settings, extractTextOnly))
-            } catch (ce: kotlinx.coroutines.CancellationException) {
-                cropped.recycle()
-                throw ce
-            } catch (t: Throwable) {
-                Timber.w(t, "Word-select OCR failed")
-                logRepository.error(
-                    LogRepository.Category.OCR,
-                    getString(R.string.log_msg_ocr_failed_format, settings.ocrEngine.name),
-                    t,
-                    elapsedMs = elapsedSince(ocrStartedAt)
-                )
-                val msg = getString(
-                    R.string.toast_word_select_ocr_failed_format,
-                    settings.ocrEngine.name,
-                    shortError(t)
-                )
-                dismissActiveCard()
-                mainScope.launch { overlay?.showErrorHint(msg) }
-                cropped.recycle()
-                return
+            logWordSelectPerf(
+                "ocr_started",
+                if (a11ySource != null) "source=a11y" else "engine=${settings.ocrEngine.name}",
+            )
+            val ocrBlocks: List<TextBlock> = if (a11ySource != null) {
+                a11ySource
+            } else {
+                val workBitmap = cropped
+                if (workBitmap == null) {
+                    dismissActiveCard()
+                    val noTextMsg = getString(R.string.word_card_no_text)
+                    mainScope.launch { overlay?.showErrorHint(noTextMsg) }
+                    return
+                }
+                try {
+                    ocrEngine.recognize(
+                        workBitmap,
+                        settings.ocrEngine,
+                        com.gameocr.app.capture.wordSelectOcrSettings(settings, extractTextOnly),
+                    )
+                } catch (ce: kotlinx.coroutines.CancellationException) {
+                    workBitmap.recycle()
+                    throw ce
+                } catch (t: Throwable) {
+                    Timber.w(t, "Word-select OCR failed")
+                    logRepository.error(
+                        LogRepository.Category.OCR,
+                        getString(R.string.log_msg_ocr_failed_format, settings.ocrEngine.name),
+                        t,
+                        elapsedMs = elapsedSince(ocrStartedAt)
+                    )
+                    val msg = getString(
+                        R.string.toast_word_select_ocr_failed_format,
+                        settings.ocrEngine.name,
+                        shortError(t)
+                    )
+                    dismissActiveCard()
+                    mainScope.launch { overlay?.showErrorHint(msg) }
+                    workBitmap.recycle()
+                    return
+                }
             }
+            val sourceLabel = if (a11ySource != null) A11Y_TEXT_SOURCE_LABEL else settings.ocrEngine.name
             logWordSelectPerf(
                 "ocr_finished",
-                "ocrMs=${elapsedSince(ocrStartedAt)} blocks=${ocrBlocks.size}",
+                "source=$sourceLabel ocrMs=${elapsedSince(ocrStartedAt)} blocks=${ocrBlocks.size}",
             )
-            logVerticalBlocks(diagId, "wordSelect rawBlocks engine=${settings.ocrEngine.name}", ocrBlocks)
+            logVerticalBlocks(diagId, "wordSelect rawBlocks engine=$sourceLabel", ocrBlocks)
             val orderedOcrBlocks = sortTextBlocksForReading(ocrBlocks)
             logVerticalBlocks(diagId, "wordSelect orderedBlocks", orderedOcrBlocks)
             // Extraction must not prepare/upload an image or enter any translation path.
+            // 无障碍取字没有截图，也就没有可上传的视觉上下文。
+            val croppedBitmap = cropped
             val translationRequestSettings = try {
-                if (extractTextOnly) settings else prepareVisualTranslationSettings(
-                    bitmap = cropped,
+                if (extractTextOnly || croppedBitmap == null) settings else prepareVisualTranslationSettings(
+                    bitmap = croppedBitmap,
                     blocks = orderedOcrBlocks,
                     settings = settings,
                     diagId = diagId,
@@ -1273,7 +1316,7 @@ class CaptureService : Service() {
                     origin = "word-select-$diagId",
                 )
             } finally {
-                cropped.recycle()
+                if (cropped != null) cropped.recycle()
             }
             val text = if (extractTextOnly) {
                 com.gameocr.app.capture.extractedCardText(ocrBlocks, settings)
@@ -1299,7 +1342,7 @@ class CaptureService : Service() {
             logWordSelectPerf("source_visible")
             logRepository.info(
                 LogRepository.Category.OCR,
-                getString(R.string.log_msg_ocr_results_format, ocrBlocks.size, settings.ocrEngine.name, text),
+                getString(R.string.log_msg_ocr_results_format, ocrBlocks.size, sourceLabel, text),
                 elapsedMs = elapsedSince(ocrStartedAt)
             )
 
@@ -2478,6 +2521,44 @@ class CaptureService : Service() {
             captureAttemptStarted = true
             beginTranslationBatch(diagId)
             logVerticalDiag(diagId, "start loopMode=$loopMode")
+            // 精准取字（无障碍）：直接读节点文本，完全跳过截屏 / 预处理 / OCR。
+            // 读不到文字的界面（游戏 / 漫画 / 视觉小说画布、没有文本节点的界面）回退到下面的 OCR。
+            // 循环翻译不做短路：SETTLED_PAGE / 帧稳定性判定都依赖截屏，v1 仍走 OCR。
+            if (!loopMode && settings.a11yTextSourceEnabled) {
+                val a11yRegion = settings.captureRegion?.takeIf(CaptureRegion::isValid)
+                val a11yOrigin = captureRegionOrigin(a11yRegion)
+                val a11yRead = readA11yTextBlocks(
+                    settings = settings,
+                    screenWidth = screenNow.width,
+                    screenHeight = screenNow.height,
+                    filterRegion = a11yRegion?.let {
+                        Rect(it.left, it.top, it.right, it.bottom)
+                    },
+                    originX = a11yOrigin.x,
+                    originY = a11yOrigin.y,
+                    diagId = diagId,
+                )
+                if (a11yRead != null) {
+                    if (a11yRead.blocks.isNotEmpty()) {
+                        restoreCaptureChromeOnce(showLoading = showLoadingAfterScreenshot)
+                        applyOverlayConfig(settings, syncFloatingWindowLock = false)
+                        renderA11yTextBlocks(a11yRead.blocks, settings, diagId)
+                        return
+                    }
+                    if (screenshotter == null) {
+                        restoreCaptureChromeOnce(showLoading = false)
+                        val msg = getString(R.string.settings_a11y_text_source_no_capture)
+                        logRepository.error(LogRepository.Category.OCR, msg)
+                        mainScope.launch { overlay?.showErrorHint(msg) }
+                        return
+                    }
+                    logVerticalDiag(diagId, "a11y text source empty; fallback to screenshot OCR")
+                    logRepository.warn(
+                        LogRepository.Category.OCR,
+                        getString(R.string.settings_a11y_text_source_fallback),
+                    )
+                }
+            }
             var full = preparedFullScreen
             if (full != null) {
                 unclaimedPreparedFull = null
@@ -4054,6 +4135,114 @@ class CaptureService : Service() {
         return prepared.settings
     }
 
+    /**
+     * 精准取字（无障碍）：读当前屏幕节点文本，按捕获区域过滤后换算成 overlay 坐标。
+     *
+     * @return null 表示开关未开或无障碍服务不可用——调用方继续走截图 OCR；非 null 时
+     *         [A11yTextRead.blocks] 可能为空，表示这个界面没有可读的文本节点。
+     */
+    private suspend fun readA11yTextBlocks(
+        settings: Settings,
+        screenWidth: Int,
+        screenHeight: Int,
+        filterRegion: Rect?,
+        originX: Int,
+        originY: Int,
+        diagId: Long?,
+    ): A11yTextRead? {
+        if (!settings.a11yTextSourceEnabled) return null
+        val startedAt = SystemClock.elapsedRealtime()
+        val result = withContext(Dispatchers.Main.immediate) {
+            GameOcrAccessibilityService.readScreenText(screenWidth, screenHeight)
+        }
+        val snapshot = when (result) {
+            is A11yTextReadResult.Ready -> result.snapshot
+            A11yTextReadResult.Unavailable -> {
+                logVerticalDiag(diagId, "a11y text source unavailable; using screenshot OCR")
+                return null
+            }
+        }
+        val gapPx = (A11Y_TEXT_MAX_HORIZONTAL_GAP_DP * resources.displayMetrics.density).toInt()
+        val blocks = A11yTextGroupingPolicy.toTextBlocks(
+            entries = snapshot.entries,
+            region = filterRegion,
+            maxHorizontalGapPx = gapPx,
+        ).map { block ->
+            block.copy(boundingBox = Rect(block.boundingBox).apply { offset(-originX, -originY) })
+        }
+        val summary = "a11y text source ${snapshot.toLogString()} " +
+            "region=${filterRegion?.toDiagString() ?: "full"} gapPx=$gapPx " +
+            "blocks=${blocks.size} totalMs=${SystemClock.elapsedRealtime() - startedAt}"
+        logVerticalDiag(diagId, summary)
+        Timber.tag("A11yText").i(summary)
+        logVerticalBlocks(diagId, "a11yTextBlocks", blocks)
+        return A11yTextRead(blocks = blocks)
+    }
+
+    /**
+     * 精准取字的渲染入口：没有截图，视觉上下文与自适应底色取样都跳过；术语保留、翻译计划、
+     * 「紧贴原文 / 悬浮窗」两种呈现方式全部复用 OCR 通路。
+     */
+    private suspend fun renderA11yTextBlocks(
+        blocks: List<TextBlock>,
+        settings: Settings,
+        diagId: Long,
+    ) {
+        val orientation = settings.manualTextOrientation
+            ?: resolveTextBlockReadingOrientation(blocks)
+        logRepository.info(
+            LogRepository.Category.OCR,
+            getString(
+                R.string.log_msg_ocr_results_format,
+                blocks.size,
+                A11Y_TEXT_SOURCE_LABEL,
+                blocks.joinToString(" | ", transform = TextBlock::text),
+            ),
+        )
+        logVerticalDiag(
+            diagId,
+            "a11y text source render mode=${settings.renderMode.name} " +
+                "orientation=$orientation blocks=${blocks.size}",
+        )
+        val redBoxActive = DeveloperOcrDebugPolicy.redBoxActive(
+            settings.developerOptionsEnabled,
+            settings.ocrRedBoxModeEnabled,
+        )
+        val debugShouldTranslate = DeveloperOcrDebugPolicy.shouldTranslate(
+            settings.developerOptionsEnabled,
+            settings.ocrRedBoxModeEnabled,
+            settings.ocrRedBoxShowTranslation,
+        )
+        if (redBoxActive && !debugShouldTranslate) {
+            withContext(Dispatchers.Main) {
+                overlay?.showBlocks(blocks.map { it to "" }, orientation, diagnosticId = diagId)
+            }
+            return
+        }
+        val sourcePreservationPlan = sourcePreservationService.plan(blocks, settings)
+        val retained = sourcePreservationPlan.retainedBlocks
+        if (retained.isEmpty()) {
+            logVerticalDiag(
+                diagId,
+                "a11y text source matched all blocks " +
+                    "count=${sourcePreservationPlan.preservedIndexes.size}",
+            )
+            return
+        }
+        if (sourcePreservationPlan.preservedIndexes.isNotEmpty()) {
+            logVerticalDiag(
+                diagId,
+                "a11y text source matched=${sourcePreservationPlan.preservedIndexes.size} " +
+                    "retained=${retained.size}",
+            )
+        }
+        when {
+            settings.renderMode == RenderMode.BLOCKS ->
+                renderBlocks(retained, settings, orientation, diagId)
+            else -> renderFloatingWindow(retained, settings, diagId)
+        }
+    }
+
     private suspend fun renderBlocks(
         blocks: List<TextBlock>,
         settings: Settings,
@@ -5535,6 +5724,15 @@ class CaptureService : Service() {
             }
     }
 }
+
+/** 精准取字的取字结果；[blocks] 可能为空，表示这个界面没有可读的文本节点。 */
+private data class A11yTextRead(val blocks: List<TextBlock>)
+
+/** 日志里代替 OCR 引擎名的来源标签。 */
+private const val A11Y_TEXT_SOURCE_LABEL = "a11y"
+
+/** 无障碍节点在同一行内合并时的最大水平间隙（dp）。 */
+private const val A11Y_TEXT_MAX_HORIZONTAL_GAP_DP = 12f
 
 private fun Int.toDiagRotation(): String = when (this) {
     Surface.ROTATION_0 -> "ROTATION_0"

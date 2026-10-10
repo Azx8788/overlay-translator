@@ -195,6 +195,11 @@ data class Settings(
     /** PaddleOCR doc-orientation ONNX model mirror. Empty = official HuggingFace source. */
     val orientationModelMirrorUrl: String = "",
     val a11yVolumeTrigger: Boolean = false,
+    /**
+     * 优先用无障碍节点树取字（不截图、不跑 OCR）。读不到文字的界面（游戏 / 漫画 / 视小说画布）
+     * 会自动回退到 [ocrEngine]；循环翻译仍走 OCR。
+     */
+    val a11yTextSourceEnabled: Boolean = false,
     val translatorEngine: TranslatorEngine = TranslatorEngine.OPENAI,
     val translationGlossaryEnabled: Boolean = true,
     /** Master gate for source-preservation matching; individual entry states remain untouched. */

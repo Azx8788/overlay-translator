@@ -938,6 +938,11 @@
     <string name="settings_search_item_merge_adjacent">Merge adjacent boxes</string>
     <string name="settings_search_item_loop_interval">Auto-loop interval</string>
     <string name="settings_search_item_a11y_volume">Volume key trigger</string>
+    <string name="settings_search_item_a11y_text_source">Accurate text reading (accessibility)</string>
+    <string name="settings_a11y_text_source_label">Accurate text reading (accessibility)</string>
+    <string name="settings_a11y_text_source_hint">Reads the text straight from the screen's controls: no screenshot, no OCR, no capture permission. Nothing is misrecognized and translation starts almost instantly.\nWorks in apps that really expose text (chat, browser, news, settings); games, manga and visual novels draw text as pixels and cannot be read this way, so those screens fall back to the OCR engine below. Loop translation still uses OCR.</string>
+    <string name="settings_a11y_text_source_fallback">No readable text on screen; fell back to screenshot OCR</string>
+    <string name="settings_a11y_text_source_no_capture">No readable text on screen, and the capture service is not running</string>
     <string name="settings_search_item_api_timeout">API request timeout</string>
     <string name="settings_search_item_youdao_pictrans">Youdao image translation (AppKey / Secret)</string>
     <string name="settings_search_item_google">Google Translate</string>

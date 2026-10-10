@@ -232,6 +232,7 @@ object SettingsFieldPolicy {
         // search destination while its user-facing management UI is disabled.
         privateConnection("orientationModelMirrorUrl"),
         portable("a11yVolumeTrigger", R.string.settings_search_item_a11y_volume),
+        portable("a11yTextSourceEnabled", R.string.settings_search_item_a11y_text_source),
         portable("translatorEngine", R.string.settings_search_item_translator_engine),
         portable("translationGlossaryEnabled", R.string.settings_glossary_enabled),
         portable("sourcePreservationEnabled"),

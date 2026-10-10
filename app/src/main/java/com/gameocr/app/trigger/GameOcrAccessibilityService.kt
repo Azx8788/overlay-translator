@@ -14,6 +14,8 @@ import android.view.accessibility.AccessibilityNodeInfo
 import com.gameocr.app.data.SettingsRepository
 import com.gameocr.app.appcontext.ForegroundAppResolver
 import com.gameocr.app.service.CaptureService
+import com.gameocr.app.textsource.A11yTextReadResult
+import com.gameocr.app.textsource.A11yTextReader
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -142,6 +144,14 @@ class GameOcrAccessibilityService : AccessibilityService() {
             connectedInstance?.captureFocusedInputInternal()
                 ?: FocusedInputCaptureResult.Error(FocusedInputReadError.SERVICE_UNAVAILABLE)
 
+        /**
+         * 读取当前屏幕所有应用窗口里的文本节点。调用方负责换算坐标（捕获区域 / 划词选区）。
+         * 服务未连接时返回 [A11yTextReadResult.Unavailable]。
+         */
+        fun readScreenText(screenWidth: Int, screenHeight: Int): A11yTextReadResult =
+            connectedInstance?.readScreenTextInternal(screenWidth, screenHeight)
+                ?: A11yTextReadResult.Unavailable
+
         fun replaceFocusedInput(
             original: FocusedInputDescriptor,
             replacement: String,
@@ -155,6 +165,25 @@ class GameOcrAccessibilityService : AccessibilityService() {
         ): Boolean = connectedInstance
             ?.verifyFocusedInputInternal(original, expectedText)
             ?: false
+    }
+
+    /**
+     * 无障碍取字：遍历所有应用窗口的节点树，抽出屏上可见文本（屏幕坐标）。
+     * 节点树只能在主线程访问，所以这里强制要求主线程调用。
+     */
+    private fun readScreenTextInternal(
+        screenWidth: Int,
+        screenHeight: Int,
+    ): A11yTextReadResult {
+        check(Looper.myLooper() == Looper.getMainLooper()) {
+            "Accessibility node tree access must run on the main thread"
+        }
+        return try {
+            A11yTextReadResult.Ready(A11yTextReader.read(this, screenWidth, screenHeight))
+        } catch (t: Throwable) {
+            Timber.w(t, "[a11y-text] screen text read failed")
+            A11yTextReadResult.Unavailable
+        }
     }
 
     private fun captureFocusedInputInternal(): FocusedInputCaptureResult = withFocusedNode(
