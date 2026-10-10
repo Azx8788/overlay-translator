@@ -4190,15 +4190,17 @@ class CaptureService : Service() {
     ) {
         val orientation = settings.manualTextOrientation
             ?: resolveTextBlockReadingOrientation(blocks)
-        logRepository.info(
-            LogRepository.Category.OCR,
-            getString(
-                R.string.log_msg_ocr_results_format,
-                blocks.size,
-                A11Y_TEXT_SOURCE_LABEL,
-                blocks.joinToString(" | ", transform = TextBlock::text),
-            ),
-        )
+        if (logRepository.verboseEnabled) {
+            logRepository.info(
+                LogRepository.Category.OCR,
+                getString(
+                    R.string.log_msg_ocr_results_format,
+                    blocks.size,
+                    A11Y_TEXT_SOURCE_LABEL,
+                    blocks.joinToString(" | ", transform = TextBlock::text),
+                ),
+            )
+        }
         logVerticalDiag(
             diagId,
             "a11y text source render mode=${settings.renderMode.name} " +
