@@ -15,6 +15,7 @@ import android.os.Build
 import android.text.SpannableStringBuilder
 import android.text.Spannable
 import android.text.Spanned
+import android.text.method.ScrollingMovementMethod
 import android.text.style.BackgroundColorSpan
 import android.util.TypedValue
 import android.view.Gravity
@@ -1469,15 +1470,17 @@ class OverlayManager(
                     }
                     if (allowWrap) {
                         setSingleLine(false)
-                        // Use the actual vertical slot. A fixed line cap leaves most of a tall
-                        // merged OVERLAP box empty while TextView scrolls inside its first rows.
-                        maxLines = horizontalOverlayMaxLines(
-                            allowWrap = true,
-                            adaptiveTextFitEnabled = adaptiveStyle != null,
-                            availableHeightPx = horizontalAvailableHeightPx,
-                            estimatedLineHeightPx = lineHeightPx,
-                        )
+                        // Render all lines; don't cap with a hard maxLines that silently hides text.
+                        maxLines = Int.MAX_VALUE
                         ellipsize = null
+                        if (adaptiveStyle == null) {
+                            // Fixed mode: cap height to the available space and let the user
+                            // scroll vertically inside the block. The old maxLines cap hid long
+                            // translations with no ellipsis and no scroll path.
+                            maxHeight = horizontalAvailableHeightPx.coerceAtLeast(lineHeightPx)
+                            movementMethod = ScrollingMovementMethod.getInstance()
+                            isVerticalScrollBarEnabled = true
+                        }
                     } else {
                         // 强制单行模式：长译文不再显示"…"截断，改用 MARQUEE 跑马灯——文本超
                         // 出可视区域时自动横向滚动，能看到完整内容；短文本则像普通 TextView。
