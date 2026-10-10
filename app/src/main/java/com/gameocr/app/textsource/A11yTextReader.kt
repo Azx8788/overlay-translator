@@ -47,8 +47,9 @@ internal sealed interface A11yTextReadResult {
  * 规则（产出顺序即节点树的阅读顺序）：
  *  1. 只接受应用窗口（[AccessibilityWindowInfo.TYPE_APPLICATION]），排除输入法、状态栏、
  *     通知栏、无障碍悬浮层；自家悬浮窗的节点按包名过滤掉；
- *  2. 递归到叶子：只有子节点都没产出文本时，才取当前节点自己的文本。这样"父节点
- *     contentDescription 汇总子节点文本"不会重复翻译；
+ *  2. 优先取叶子文本：子节点已经产出文本时，父节点只有在"自己的文本覆盖了全部子文本"时才
+ *     接手（例如 WebView 段落 "Read more about this" 里套着链接节点 "this"，整段才是要翻的
+ *     单位）；否则保留子节点条目，避免把父节点的汇总描述重复翻译一遍；
  *  3. 跳过密码框、可编辑输入框、不可见 / 零面积节点，以及按钮、复选框这类纯控件类名
  *     （见 [isExcludedA11yClass]），避免把界面按钮文字当成正文送去翻译。
  *
@@ -119,18 +120,19 @@ internal object A11yTextReader {
             elapsedMs = SystemClock.elapsedRealtime() - startedAt,
         )
 
-        /** @return true 表示该子树已经产出过文本。 */
+        /** @return 该子树产出的全部文本（去掉空白，用于父节点判断自己是否覆盖了子文本）；无文本返回 null。 */
         private fun visit(
             node: AccessibilityNodeInfo,
             depth: Int,
             windowIndex: Int,
-        ): Boolean {
+        ): String? {
             if (budgetExhausted() || depth > MAX_DEPTH) {
                 truncated = true
-                return false
+                return null
             }
             visitedNodes++
-            var childYielded = false
+            val firstChildEntryIndex = entries.size
+            val childText = StringBuilder()
             val childCount = node.childCount
             for (index in 0 until childCount) {
                 if (budgetExhausted()) {
@@ -139,40 +141,69 @@ internal object A11yTextReader {
                 }
                 val child = node.getChild(index) ?: continue
                 try {
-                    if (visit(child, depth + 1, windowIndex)) childYielded = true
+                    visit(child, depth + 1, windowIndex)?.let(childText::append)
                 } finally {
                     recycleA11yNode(child)
                 }
             }
-            if (childYielded) return true
-            val bounds = Rect()
-            node.getBoundsInScreen(bounds)
-            val text = extractText(node, bounds) ?: return false
-            entries += A11yTextEntry(
-                text = text,
-                bounds = bounds,
-                order = entries.size,
-                windowIndex = windowIndex,
-            )
-            return true
+            val ownText = readOwnText(node)
+            if (childText.isEmpty()) {
+                val bounds = Rect()
+                if (ownText == null || !acceptBounds(node, bounds)) return null
+                entries += A11yTextEntry(
+                    text = ownText,
+                    bounds = bounds,
+                    order = entries.size,
+                    windowIndex = windowIndex,
+                )
+                return ownText.withoutWhitespace()
+            }
+            // 子节点已经产出文本：父节点只有在完整覆盖子文本时才接手，否则保留更细的子条目。
+            if (ownText != null) {
+                val normalizedOwn = ownText.withoutWhitespace()
+                if (normalizedOwn.length > childText.length && normalizedOwn.contains(childText)) {
+                    val bounds = Rect()
+                    if (acceptBounds(node, bounds)) {
+                        while (entries.size > firstChildEntryIndex) {
+                            entries.removeAt(entries.lastIndex)
+                        }
+                        entries += A11yTextEntry(
+                            text = ownText,
+                            bounds = bounds,
+                            order = entries.size,
+                            windowIndex = windowIndex,
+                        )
+                        return normalizedOwn
+                    }
+                }
+            }
+            return childText.toString()
         }
 
-        private fun extractText(node: AccessibilityNodeInfo, bounds: Rect): String? {
+        /** 取节点自己的文本；密码框、输入框、不可见、纯控件类名与自家节点都返回 null。 */
+        private fun readOwnText(node: AccessibilityNodeInfo): String? {
             if (node.isPassword || node.isEditable) return null
             if (!node.isVisibleToUser) return null
             if (node.packageName?.toString() == ownPackage) return null
-            if (bounds.width() <= 0 || bounds.height() <= 0) return null
-            if (!bounds.intersect(0, 0, screenWidth, screenHeight)) return null
             if (isExcludedA11yClass(node.className?.toString().orEmpty())) return null
             return node.text?.toString()?.trim()?.takeIf(String::isNotEmpty)
                 ?: node.contentDescription?.toString()?.trim()?.takeIf(String::isNotEmpty)
                 ?: node.hintText?.toString()?.trim()?.takeIf(String::isNotEmpty)
         }
 
+        /** 控件必须在屏上有正面积；命中屏幕外的部分裁掉，保证 overlay 坐标可用。 */
+        private fun acceptBounds(node: AccessibilityNodeInfo, out: Rect): Boolean {
+            node.getBoundsInScreen(out)
+            if (out.width() <= 0 || out.height() <= 0) return false
+            return out.intersect(0, 0, screenWidth, screenHeight)
+        }
+
         private fun budgetExhausted(): Boolean =
             visitedNodes >= MAX_NODES || SystemClock.elapsedRealtime() - startedAt > TIME_BUDGET_MS
     }
 }
+
+private fun String.withoutWhitespace(): String = filterNot(Char::isWhitespace)
 
 /**
  * 按类名简单名后缀过滤纯控件。它们自己带的文字（"发送"、"确定"）属于界面操作，不是用户想
