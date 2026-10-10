@@ -1122,7 +1122,7 @@ class CaptureService : Service() {
                 originY = rect.top,
                 diagId = diagId,
             )
-            if (a11yBlocks?.isEmpty() == true && screenshotter != null) {
+            if (a11yBlocks?.blocks.isNullOrEmpty() && screenshotter != null) {
                 logVerticalDiag(diagId, "a11y text source empty; fallback to screenshot OCR")
                 a11yBlocks = null
             }
@@ -1257,7 +1257,7 @@ class CaptureService : Service() {
                 if (a11ySource != null) "source=a11y" else "engine=${settings.ocrEngine.name}",
             )
             val ocrBlocks: List<TextBlock> = if (a11ySource != null) {
-                a11ySource
+                a11ySource.blocks
             } else {
                 val workBitmap = cropped
                 if (workBitmap == null) {
@@ -4148,7 +4148,7 @@ class CaptureService : Service() {
         filterRegion: Rect?,
         originX: Int,
         originY: Int,
-        diagId: Long?,
+        diagId: Long,
     ): A11yTextRead? {
         if (!settings.a11yTextSourceEnabled) return null
         val startedAt = SystemClock.elapsedRealtime()

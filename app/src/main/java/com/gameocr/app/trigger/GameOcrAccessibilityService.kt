@@ -148,7 +148,7 @@ class GameOcrAccessibilityService : AccessibilityService() {
          * 读取当前屏幕所有应用窗口里的文本节点。调用方负责换算坐标（捕获区域 / 划词选区）。
          * 服务未连接时返回 [A11yTextReadResult.Unavailable]。
          */
-        fun readScreenText(screenWidth: Int, screenHeight: Int): A11yTextReadResult =
+        internal fun readScreenText(screenWidth: Int, screenHeight: Int): A11yTextReadResult =
             connectedInstance?.readScreenTextInternal(screenWidth, screenHeight)
                 ?: A11yTextReadResult.Unavailable
 
