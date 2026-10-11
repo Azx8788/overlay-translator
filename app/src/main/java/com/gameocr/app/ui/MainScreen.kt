@@ -569,7 +569,11 @@ fun MainScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { inner ->
         Column(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(inner)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = MainScreenHorizontalPadding, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             // 一行实心按钮：开始 / 停止（未授权时就是授权入口）
