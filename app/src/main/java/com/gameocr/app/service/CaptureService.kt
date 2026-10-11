@@ -2450,6 +2450,7 @@ class CaptureService : Service() {
         }
         val diagId = captureSequence.incrementAndGet()
         var captureAttemptStarted = false
+        var a11yServiceMissingDuringFallback = false
         var captureChromeRestored = false
         var floatingButtonHiddenForCapture = false
         var captureRegionBorderHiddenForCapture = false
@@ -2557,6 +2558,13 @@ class CaptureService : Service() {
                         LogRepository.Category.OCR,
                         getString(R.string.settings_a11y_text_source_fallback),
                     )
+                } else if (!GameOcrAccessibilityService.isConnected()) {
+                    // 开关已开、无障碍服务却没连上：本次回退截图 OCR，并把原因告诉用户。
+                    a11yServiceMissingDuringFallback = true
+                    logRepository.warn(
+                        LogRepository.Category.OCR,
+                        getString(R.string.settings_a11y_text_source_service_off),
+                    )
                 }
             }
             var full = preparedFullScreen
@@ -2636,6 +2644,11 @@ class CaptureService : Service() {
             logCaptureGeometry(diagId, "fullScreen", full)
             logBlankLikeFrame(diagId, "screenshot", fullStats)
             applyOverlayConfig(settings, syncFloatingWindowLock = false)
+            if (a11yServiceMissingDuringFallback) {
+                a11yServiceMissingDuringFallback = false
+                val msg = getString(R.string.settings_a11y_text_source_service_off)
+                mainScope.launch { overlay?.showInfoHint(msg) }
+            }
             logVerticalSettings(diagId, settings, screenNow.width, screenNow.height)
 
             val region = settings.captureRegion

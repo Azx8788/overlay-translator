@@ -18,9 +18,7 @@ class TranslationCardSpeechPolicyTest {
 
         listOf(
             Case("classic", OverlayTheme.CLASSIC_DARK, expected = 0xFF90CAF9.toInt()),
-            Case("amber", OverlayTheme.AMBER_GOLD, expected = 0xFFB8860B.toInt()),
             Case("paper", OverlayTheme.PAPER_LIGHT, expected = 0xFFB68850.toInt()),
-            Case("frost", OverlayTheme.FROST_GLASS, expected = 0xFF60A5FA.toInt()),
             Case("custom border wins", OverlayTheme.CUSTOM, 0xFF123456.toInt(), 0xFFABCDEF.toInt(), 0xFF123456.toInt()),
             Case("custom foreground fallback", OverlayTheme.CUSTOM, 0, 0xFFABCDEF.toInt(), 0xFFABCDEF.toInt()),
         ).forEach { case ->

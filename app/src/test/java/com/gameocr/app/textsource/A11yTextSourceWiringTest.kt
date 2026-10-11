@@ -56,7 +56,7 @@ class A11yTextSourceWiringTest {
         listOf(
             "AccessibilityWindowInfo.TYPE_APPLICATION",
             "service.rootInActiveWindow",
-            "node.isPassword || node.isEditable",
+            "node.isPassword",
             "node.packageName?.toString() == ownPackage",
             "node.isVisibleToUser",
             "must run on the main thread",
@@ -64,8 +64,12 @@ class A11yTextSourceWiringTest {
             assertTrue("reader must keep: $marker", reader.contains(marker))
         }
         assertTrue(
-            "excluded widget classes stay documented as suffixes",
-            reader.contains("private fun isExcludedA11yClass(className: String): Boolean"),
+            "parent takes over only when its own text covers every child fragment",
+            reader.contains("childFragments.all { normalizedOwn.contains(it) }"),
+        )
+        assertFalse(
+            "no blanket control-class exclusion: button / tab / icon labels stay translatable",
+            reader.contains("isExcludedA11yClass"),
         )
     }
 

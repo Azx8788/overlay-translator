@@ -1199,26 +1199,20 @@ class TranslationCardOverlay(
 
     private fun themeBgColor(theme: OverlayTheme, s: Settings): Int = when (theme) {
         OverlayTheme.CLASSIC_DARK -> 0xE6000000.toInt()
-        OverlayTheme.AMBER_GOLD -> 0xF0241608.toInt()
         OverlayTheme.PAPER_LIGHT -> 0xF0F5EFE0.toInt()
-        OverlayTheme.FROST_GLASS -> 0xCC1E293B.toInt()
         OverlayTheme.CUSTOM -> s.customBgColor
     }
 
     private fun themeFgColor(theme: OverlayTheme, s: Settings): Int = when (theme) {
         OverlayTheme.CLASSIC_DARK -> 0xFFFFFFFF.toInt()
-        OverlayTheme.AMBER_GOLD -> 0xFFFFD27F.toInt()
         OverlayTheme.PAPER_LIGHT -> 0xFF3E2A1F.toInt()
-        OverlayTheme.FROST_GLASS -> 0xFFE0F2FE.toInt()
         OverlayTheme.CUSTOM -> s.customFgColor
     }
 
     /** 次要文字色 (原文标题 / 例句原文 / 关闭键)。CUSTOM 时用 fg 半透明替代。 */
     private fun themeFgMutedColor(theme: OverlayTheme, s: Settings): Int = when (theme) {
         OverlayTheme.CLASSIC_DARK -> 0xCCB0BEC5.toInt()
-        OverlayTheme.AMBER_GOLD -> 0xCCB68850.toInt()
         OverlayTheme.PAPER_LIGHT -> 0xCC8B6F47.toInt()
-        OverlayTheme.FROST_GLASS -> 0xCC94A3B8.toInt()
         OverlayTheme.CUSTOM -> (s.customFgColor and 0x00FFFFFF) or 0xB0000000.toInt()
     }
 
@@ -1232,9 +1226,7 @@ class TranslationCardOverlay(
 
     /** 主题边框：(widthDp, color)。widthDp = 0 表示无边。 */
     private fun themeStroke(theme: OverlayTheme, s: Settings): Pair<Int, Int> = when (theme) {
-        OverlayTheme.AMBER_GOLD -> 2 to 0xFFB8860B.toInt()
         OverlayTheme.PAPER_LIGHT -> 1 to 0xFFB68850.toInt()
-        OverlayTheme.FROST_GLASS -> 1 to 0xFF60A5FA.toInt()
         OverlayTheme.CUSTOM -> if (s.customBorderWidth > 0) s.customBorderWidth to s.customBorderColor else 0 to 0
         else -> 0 to 0
     }
@@ -1259,7 +1251,7 @@ class TranslationCardOverlay(
      * - SOLID/DASHED/DOTTED：单 GradientDrawable，setStroke 4-arg 自带 dash 支持
      * - DOUBLE：LayerDrawable 外层 stroke + 内层 inset stroke（间隙模拟双边）
      * - GROOVE：LayerDrawable，外层暗色 + 内层亮色 stroke，模拟凹槽
-     * 主题本身无 stroke（如 CLASSIC_DARK）时 borderStyle 不生效；预设主题（AMBER/PAPER/FROST）
+     * 主题本身无 stroke（如 CLASSIC_DARK）时 borderStyle 不生效；预设主题（PAPER_LIGHT）
      * 也不读 borderStyle——预设的边框是调好的实线，用户调 borderStyle 只该影响 CUSTOM 主题。
      */
     private fun shellBackground(theme: OverlayTheme, s: Settings, density: Float): android.graphics.drawable.Drawable {

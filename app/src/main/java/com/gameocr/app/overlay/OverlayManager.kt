@@ -2361,17 +2361,13 @@ class OverlayManager(
 
     private fun themeFgColor(): Int = when (theme) {
         OverlayTheme.CLASSIC_DARK -> 0xFFFFFFFF.toInt()
-        OverlayTheme.AMBER_GOLD -> 0xFFFFD27F.toInt()
         OverlayTheme.PAPER_LIGHT -> 0xFF3E2A1F.toInt()
-        OverlayTheme.FROST_GLASS -> 0xFFE0F2FE.toInt()
         OverlayTheme.CUSTOM -> customFg
     }
 
     private fun themeFgMutedColor(): Int = when (theme) {
         OverlayTheme.CLASSIC_DARK -> 0xFFB0BEC5.toInt()
-        OverlayTheme.AMBER_GOLD -> 0xFFB68850.toInt()
         OverlayTheme.PAPER_LIGHT -> 0xFF8B6F47.toInt()
-        OverlayTheme.FROST_GLASS -> 0xFF94A3B8.toInt()
         OverlayTheme.CUSTOM -> (customFg and 0xFFFFFF) or 0x99000000.toInt()
     }
 
@@ -2379,16 +2375,12 @@ class OverlayManager(
         cornerRadius = 8f
         setColor(when (theme) {
             OverlayTheme.CLASSIC_DARK -> 0xE6000000.toInt()
-            OverlayTheme.AMBER_GOLD -> 0xF0241608.toInt()
             OverlayTheme.PAPER_LIGHT -> 0xF0F5EFE0.toInt()
-            OverlayTheme.FROST_GLASS -> 0xCC1E293B.toInt()
             OverlayTheme.CUSTOM -> customBg
         })
         val density = context.resources.displayMetrics.density
         when (theme) {
-            OverlayTheme.AMBER_GOLD -> setStroke(2, 0xFFB8860B.toInt())
             OverlayTheme.PAPER_LIGHT -> setStroke(1, 0xFFB68850.toInt())
-            OverlayTheme.FROST_GLASS -> setStroke(1, 0xFF60A5FA.toInt())
             OverlayTheme.CUSTOM -> if (customBorderWidthDp > 0) {
                 val px = (customBorderWidthDp * density).toInt()
                 // BLOCKS 模式的 box 用 GradientDrawable，只支持 SOLID/DASHED/DOTTED；

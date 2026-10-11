@@ -837,6 +837,7 @@
     <string name="settings_a11y_text_source_hint">يقرأ النص مباشرة من عناصر الواجهة: بلا لقطة شاشة وبلا OCR وبلا إذن التسجيل، فلا يوجد خطأ في التعرّف ويبدأ الترجمة فورًا. يعمل مع التطبيقات التي تُعرّض نصًا حقيقيًا (الدردشة والمتصفح والأخبار والإعدادات)؛ أما الألعاب والمانجا والروايات المصوّرة فالنص فيها مرسوم كبكسلات، لذا تعود تلقائيًا إلى محرك OCR أدناه. الترجمة المتكررة لا تزال تستخدم OCR.</string>
     <string name="settings_a11y_text_source_label">قراءة دقيقة للنص (إمكانية الوصول)</string>
     <string name="settings_a11y_text_source_no_capture">لا يوجد نص مقروء على الشاشة، وخدمة التسجيل غير قيد التشغيل</string>
+    <string name="settings_a11y_text_source_service_off">خدمة إمكانية الوصول متوقفة؛ تم استخدام OCR بلقطة الشاشة هذه المرة. فعّلها من إعدادات إمكانية الوصول في النظام.</string>
     <string name="settings_a11y_volume">مشغل مفتاح الصوت (يتطلب خدمة تسهيلات الاستخدام)</string>
     <string name="settings_a11y_volume_hint">اضغط مع الاستمرار على مفتاحي رفع وخفض الصوت معًا لمدة 0.3 ثانية لتشغيل لقطة واحدة. لا يزال المفتاح الواحد يضبط مستوى الصوت بشكل طبيعي.</string>
     <string name="settings_a11y_volume_label">مشغل مفتاح الصوت (يتطلب خدمة تسهيلات الاستخدام)</string>
@@ -1550,12 +1551,10 @@
     <string name="settings_text_style_reset">إعادة تعيين نمط النص</string>
     <string name="settings_text_style_underline">تحت خط</string>
     <string name="settings_textsize_label_format">حجم النص: %1$d نقطة</string>
-    <string name="settings_theme_amber_gold">ذهبي كهرماني</string>
     <string name="settings_theme_classic_dark">كلاسيكي داكن</string>
     <string name="settings_theme_custom">مخصص</string>
     <string name="settings_theme_dark">داكن</string>
     <string name="settings_theme_follow_system">اتبع النظام</string>
-    <string name="settings_theme_frost_glass">زجاج بلوري</string>
     <string name="settings_theme_light">فاتح</string>
     <string name="settings_theme_paper_light">ورقة خفيفة</string>
     <string name="settings_thinking_custom_disabled_json">الحقول عند التعطيل</string>

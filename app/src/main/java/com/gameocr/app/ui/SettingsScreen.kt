@@ -3162,11 +3162,9 @@ fun SettingsScreen(
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     EngineChip(overlayTheme, OverlayTheme.CLASSIC_DARK, stringResource(R.string.settings_theme_classic_dark)) { overlayTheme = it }
-                    EngineChip(overlayTheme, OverlayTheme.AMBER_GOLD, stringResource(R.string.settings_theme_amber_gold)) { overlayTheme = it }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     EngineChip(overlayTheme, OverlayTheme.PAPER_LIGHT, stringResource(R.string.settings_theme_paper_light)) { overlayTheme = it }
-                    EngineChip(overlayTheme, OverlayTheme.FROST_GLASS, stringResource(R.string.settings_theme_frost_glass)) { overlayTheme = it }
                     EngineChip(overlayTheme, OverlayTheme.CUSTOM, stringResource(R.string.settings_theme_custom)) { overlayTheme = it }
                 }
                 if (overlayTheme == OverlayTheme.CUSTOM) {
@@ -5366,9 +5364,7 @@ fun SettingsScreen(
                 val overlayThemeLabel = stringResource(
                     when (overlayTheme) {
                         OverlayTheme.CLASSIC_DARK -> R.string.settings_theme_classic_dark
-                        OverlayTheme.AMBER_GOLD -> R.string.settings_theme_amber_gold
                         OverlayTheme.PAPER_LIGHT -> R.string.settings_theme_paper_light
-                        OverlayTheme.FROST_GLASS -> R.string.settings_theme_frost_glass
                         OverlayTheme.CUSTOM -> R.string.settings_theme_custom
                     }
                 )
@@ -9099,12 +9095,8 @@ private fun overlayThemeColors(
 ): ThemeColors = when (theme) {
     OverlayTheme.CLASSIC_DARK ->
         ThemeColors(bg = 0xE6000000.toInt(), fg = 0xFFFFFFFF.toInt(), border = 0, borderDp = 0)
-    OverlayTheme.AMBER_GOLD ->
-        ThemeColors(bg = 0xF0241608.toInt(), fg = 0xFFFFD27F.toInt(), border = 0xFFB8860B.toInt(), borderDp = 2)
     OverlayTheme.PAPER_LIGHT ->
         ThemeColors(bg = 0xF0F5EFE0.toInt(), fg = 0xFF3E2A1F.toInt(), border = 0xFFB68850.toInt(), borderDp = 1)
-    OverlayTheme.FROST_GLASS ->
-        ThemeColors(bg = 0xCC1E293B.toInt(), fg = 0xFFE0F2FE.toInt(), border = 0xFF60A5FA.toInt(), borderDp = 1)
     OverlayTheme.CUSTOM ->
         ThemeColors(bg = customBg, fg = customFg, border = customBorder, borderDp = customBorderW.coerceAtLeast(0))
 }
@@ -9711,12 +9703,10 @@ private val SETTING_ITEMS: List<SearchEntry> = listOfNotNull(
         SectionKeys.OVERLAY,
         R.string.settings_overlay_rendering_title,
         R.string.settings_search_item_overlay_theme,
-        listOf("深色", "浅色", "纸张", "霜玻璃", "琥珀", "theme", "dark", "light", "frost", "amber"),
+        listOf("深色", "浅色", "纸张", "theme", "dark", "light"),
         optionLabelResIds = listOf(
             R.string.settings_theme_classic_dark,
-            R.string.settings_theme_amber_gold,
             R.string.settings_theme_paper_light,
-            R.string.settings_theme_frost_glass,
             R.string.settings_theme_custom,
         ),
     ),

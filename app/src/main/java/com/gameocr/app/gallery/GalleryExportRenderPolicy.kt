@@ -87,22 +87,10 @@ internal fun galleryExportPalette(
             0x00000000,
             0,
         )
-        OverlayTheme.AMBER_GOLD -> listOf(
-            0xF0241608.toInt(),
-            0xFFFFD27F.toInt(),
-            0xFFB8860B.toInt(),
-            (2f * safeScale).roundToInt().coerceAtLeast(1),
-        )
         OverlayTheme.PAPER_LIGHT -> listOf(
             0xF0F5EFE0.toInt(),
             0xFF3E2A1F.toInt(),
             0xFFB68850.toInt(),
-            safeScale.roundToInt().coerceAtLeast(1),
-        )
-        OverlayTheme.FROST_GLASS -> listOf(
-            0xCC1E293B.toInt(),
-            0xFFE0F2FE.toInt(),
-            0xFF60A5FA.toInt(),
             safeScale.roundToInt().coerceAtLeast(1),
         )
         OverlayTheme.CUSTOM -> listOf(

@@ -1077,7 +1077,7 @@ class DraggableOverlayWindow(
         }
         val px = (strokeWidthDp * density).toInt().coerceAtLeast(1)
 
-        // borderStyle 仅在 CUSTOM 主题下生效——预设主题（AMBER/PAPER/FROST）的边框是设计师调好的实线，
+        // borderStyle 仅在 CUSTOM 主题下生效——预设主题（PAPER_LIGHT）的边框是设计师调好的实线，
         // 用户调 borderStyle 不应改主题预设的视觉。
         if (theme != OverlayTheme.CUSTOM) {
             return GradientDrawable().apply {
@@ -1141,17 +1141,13 @@ class DraggableOverlayWindow(
 
     private fun themeBgColor(): Int = when (theme) {
         OverlayTheme.CLASSIC_DARK -> 0xE6000000.toInt()
-        OverlayTheme.AMBER_GOLD -> 0xF0241608.toInt()
         OverlayTheme.PAPER_LIGHT -> 0xF0F5EFE0.toInt()
-        OverlayTheme.FROST_GLASS -> 0xCC1E293B.toInt()
         OverlayTheme.CUSTOM -> customBg
     }
 
     /** 主题边框：(widthDp, color)。widthDp = 0 表示无边。 */
     private fun themeStroke(): Pair<Int, Int> = when (theme) {
-        OverlayTheme.AMBER_GOLD -> 2 to 0xFFB8860B.toInt()
         OverlayTheme.PAPER_LIGHT -> 1 to 0xFFB68850.toInt()
-        OverlayTheme.FROST_GLASS -> 1 to 0xFF60A5FA.toInt()
         OverlayTheme.CUSTOM -> if (customBorderWidthDp > 0) customBorderWidthDp to customBorder else 0 to 0
         else -> 0 to 0
     }
@@ -1173,17 +1169,13 @@ class DraggableOverlayWindow(
 
     private fun themeFgColor(): Int = when (theme) {
         OverlayTheme.CLASSIC_DARK -> 0xFFFFFFFF.toInt()
-        OverlayTheme.AMBER_GOLD -> 0xFFFFD27F.toInt()
         OverlayTheme.PAPER_LIGHT -> 0xFF3E2A1F.toInt()
-        OverlayTheme.FROST_GLASS -> 0xFFE0F2FE.toInt()
         OverlayTheme.CUSTOM -> customFg
     }
 
     private fun themeFgMutedColor(): Int = when (theme) {
         OverlayTheme.CLASSIC_DARK -> 0x80B0BEC5.toInt()
-        OverlayTheme.AMBER_GOLD -> 0x80B68850.toInt()
         OverlayTheme.PAPER_LIGHT -> 0x808B6F47.toInt()
-        OverlayTheme.FROST_GLASS -> 0x8094A3B8.toInt()
         OverlayTheme.CUSTOM -> (customFg and 0xFFFFFF) or 0x80000000.toInt()
     }
 

@@ -241,24 +241,10 @@ class GalleryExportRenderPolicyTest {
                 0,
             ),
             Case(
-                OverlayTheme.AMBER_GOLD,
-                0xF0241608.toInt(),
-                0xFFFFD27F.toInt(),
-                0xFFB8860B.toInt(),
-                2,
-            ),
-            Case(
                 OverlayTheme.PAPER_LIGHT,
                 0xF0F5EFE0.toInt(),
                 0xFF3E2A1F.toInt(),
                 0xFFB68850.toInt(),
-                1,
-            ),
-            Case(
-                OverlayTheme.FROST_GLASS,
-                0xCC1E293B.toInt(),
-                0xFFE0F2FE.toInt(),
-                0xFF60A5FA.toInt(),
                 1,
             ),
         ).forEach { case ->

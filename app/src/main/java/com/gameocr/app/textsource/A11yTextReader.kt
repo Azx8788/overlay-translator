@@ -47,11 +47,11 @@ internal sealed interface A11yTextReadResult {
  * 规则（产出顺序即节点树的阅读顺序）：
  *  1. 只接受应用窗口（[AccessibilityWindowInfo.TYPE_APPLICATION]），排除输入法、状态栏、
  *     通知栏、无障碍悬浮层；自家悬浮窗的节点按包名过滤掉；
- *  2. 优先取叶子文本：子节点已经产出文本时，父节点只有在"自己的文本覆盖了全部子文本"时才
- *     接手（例如 WebView 段落 "Read more about this" 里套着链接节点 "this"，整段才是要翻的
- *     单位）；否则保留子节点条目，避免把父节点的汇总描述重复翻译一遍；
- *  3. 跳过密码框、可编辑输入框、不可见 / 零面积节点，以及按钮、复选框这类纯控件类名
- *     （见 [isExcludedA11yClass]），避免把界面按钮文字当成正文送去翻译。
+ *  2. 优先取叶子文本：子节点已经产出文本时，父节点只有在"自己的文本逐一覆盖了全部子片段"时才
+ *     接手（例如推文正文里套着 #话题 / 链接等内联 ClickableSpan 虚拟子节点，整段正文才是要翻
+ *     的单位）；否则保留子节点条目，避免把父节点的汇总描述重复翻译一遍；
+ *  3. 跳过密码框、不可见 / 零面积节点与自家悬浮窗；可编辑输入框跳过已输入内容但仍读其占位符。
+ *     不按控件类名过滤——按钮 / 标签页 / 图标文案对翻译同样有用，一并读出来才算取字全面。
  *
  * 必须在主线程调用；受 [MAX_NODES] / [TIME_BUDGET_MS] 预算保护，超预算即截断返回。
  */
@@ -132,7 +132,7 @@ internal object A11yTextReader {
             }
             visitedNodes++
             val firstChildEntryIndex = entries.size
-            val childText = StringBuilder()
+            val childFragments = ArrayList<String>()
             val childCount = node.childCount
             for (index in 0 until childCount) {
                 if (budgetExhausted()) {
@@ -141,13 +141,13 @@ internal object A11yTextReader {
                 }
                 val child = node.getChild(index) ?: continue
                 try {
-                    visit(child, depth + 1, windowIndex)?.let(childText::append)
+                    visit(child, depth + 1, windowIndex)?.let(childFragments::add)
                 } finally {
                     recycleA11yNode(child)
                 }
             }
             val ownText = readOwnText(node)
-            if (childText.isEmpty()) {
+            if (childFragments.isEmpty()) {
                 val bounds = Rect()
                 if (ownText == null || !acceptBounds(node, bounds)) return null
                 entries += A11yTextEntry(
@@ -158,12 +158,16 @@ internal object A11yTextReader {
                 )
                 return ownText.withoutWhitespace()
             }
-            // 子节点已经产出文本：父节点只有在完整覆盖子文本时才接手，否则保留更细的子条目。
+            // 子树已产出文本。父节点若"自己的文本覆盖了全部子文本"，就接手整段、丢掉更碎的子条目。
+            // 覆盖判定按"每个子片段分别被包含"，而不是"拼接后整体包含"：推文 / 聊天 / 新闻正文常把
+            // 超链接、@提及、#话题渲染成内联 ClickableSpan，这些 span 会变成分散的虚拟子节点；它们
+            // 拼接起来并不是正文的连续子串，用整体 contains 判定会漏掉整段正文、只剩零散的链接词。
+            // 长度闸门（父文本 ≥ 子片段总长）确保父文本确实是更完整的那份，避免误吞并列的两段文字。
             if (ownText != null) {
                 val normalizedOwn = ownText.withoutWhitespace()
-                // >= 而不是 >：WebView / Compose 段落里"整段文本 == 各内联碎片拼接"是常态，
-                // 恰好相等时由父节点接手才能按整段翻译，否则段落会被拆成碎句。
-                if (normalizedOwn.length >= childText.length && normalizedOwn.contains(childText)) {
+                val combinedChildLength = childFragments.sumOf { it.length }
+                val ownCoversEveryFragment = childFragments.all { normalizedOwn.contains(it) }
+                if (normalizedOwn.length >= combinedChildLength && ownCoversEveryFragment) {
                     val bounds = Rect()
                     if (acceptBounds(node, bounds)) {
                         while (entries.size > firstChildEntryIndex) {
@@ -179,16 +183,28 @@ internal object A11yTextReader {
                     }
                 }
             }
-            return childText.toString()
+            return childFragments.joinToString(separator = "")
         }
 
-        /** 取节点自己的文本；密码框、输入框、不可见、纯控件类名与自家节点都返回 null。 */
+        /**
+         * 取节点自己的文本。密码框永远跳过；可编辑输入框跳过"已输入内容"（多半是用户自己打的字，
+         * 不是要翻译的目标），但仍读它的 contentDescription / hintText（占位符如"搜索"、"写回复"
+         * 属于界面文案，值得翻译）。不可见节点与自家悬浮窗节点跳过。
+         *
+         * 不再按控件类名过滤：对翻译工具来说，按钮 / 标签页 / 图标的文案（"关注""设置""更多"）同样
+         * 是用户想看懂的界面文字，一并读出来才算"取字全面"。纯状态控件（进度条 / 拖动条）本身没有
+         * text/contentDescription，自然不会产出噪声。
+         */
         private fun readOwnText(node: AccessibilityNodeInfo): String? {
-            if (node.isPassword || node.isEditable) return null
+            if (node.isPassword) return null
             if (!node.isVisibleToUser) return null
             if (node.packageName?.toString() == ownPackage) return null
-            if (isExcludedA11yClass(node.className?.toString().orEmpty())) return null
-            return node.text?.toString()?.trim()?.takeIf(String::isNotEmpty)
+            val typedText = if (node.isEditable) {
+                null
+            } else {
+                node.text?.toString()?.trim()?.takeIf(String::isNotEmpty)
+            }
+            return typedText
                 ?: node.contentDescription?.toString()?.trim()?.takeIf(String::isNotEmpty)
                 ?: node.hintText?.toString()?.trim()?.takeIf(String::isNotEmpty)
         }
@@ -206,32 +222,6 @@ internal object A11yTextReader {
 }
 
 private fun String.withoutWhitespace(): String = filterNot(Char::isWhitespace)
-
-/**
- * 按类名简单名后缀过滤纯控件。它们自己带的文字（"发送"、"确定"）属于界面操作，不是用户想
- * 翻译的正文；真正承载正文的 TextView / WebView / Compose 文本节点不受影响。
- */
-private val EXCLUDED_A11Y_CLASS_SUFFIXES = listOf(
-    "Button",
-    "ImageButton",
-    "ImageView",
-    "CheckBox",
-    "RadioButton",
-    "Switch",
-    "ToggleButton",
-    "SeekBar",
-    "ProgressBar",
-    "RatingBar",
-    "Spinner",
-    "Chip",
-    "TabLayout",
-)
-
-private fun isExcludedA11yClass(className: String): Boolean {
-    if (className.isEmpty()) return false
-    val simpleName = className.substringAfterLast('.')
-    return EXCLUDED_A11Y_CLASS_SUFFIXES.any { suffix -> simpleName.endsWith(suffix) }
-}
 
 @Suppress("DEPRECATION")
 private fun recycleA11yNode(node: AccessibilityNodeInfo) {
