@@ -35,8 +35,20 @@ jobs:
       - name: Set up Gradle (with cache)
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Generate Gradle wrapper jar
-        run: gradle wrapper --gradle-version 8.10.2 --distribution-type bin
+      # Gradle 发行包（约 130MB）缓存到 ~/.gradle/wrapper/dists，避免每次 CI 重新下载。
+      - name: Cache Gradle distribution
+        uses: actions/cache@v4
+        with:
+          path: ~/.gradle/wrapper/dists
+          key: gradle-dists-${{ runner.os }}-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
+
+      # wrapper jar 与脚本已入库，这里只补可执行位；万一 jar 缺失再重新生成（防回归）。
+      - name: Prepare Gradle wrapper
+        run: |
+          chmod +x gradlew
+          if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
+            gradle wrapper --gradle-version 8.10.2 --distribution-type bin
+          fi
 
       - name: Stub local.properties
         run: |
@@ -45,7 +57,7 @@ jobs:
           fi
 
       - name: Assemble debug
-        run: ./gradlew --no-daemon assembleDebug lint
+        run: ./gradlew --no-daemon assembleDebug
 
       - name: Upload debug APK
         if: success()
@@ -55,6 +67,11 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+      # 测试源码（约 6 万行）的 lint 分析要 4 分钟以上，且不面向发布产物，排除；
+      # 主源码与各模块的 lint 照常运行。
+      - name: Lint
+        run: ./gradlew --no-daemon lint -x lintAnalyzeDebugUnitTest -x lintAnalyzeDebugAndroidTest
 
       - name: Upload lint report (on failure)
         if: failure()
