@@ -2450,7 +2450,6 @@ class CaptureService : Service() {
         }
         val diagId = captureSequence.incrementAndGet()
         var captureAttemptStarted = false
-        var a11yServiceMissingDuringFallback = false
         var captureChromeRestored = false
         var floatingButtonHiddenForCapture = false
         var captureRegionBorderHiddenForCapture = false
@@ -2522,51 +2521,9 @@ class CaptureService : Service() {
             captureAttemptStarted = true
             beginTranslationBatch(diagId)
             logVerticalDiag(diagId, "start loopMode=$loopMode")
-            // 精准取字（无障碍）：直接读节点文本，完全跳过截屏 / 预处理 / OCR。
-            // 读不到文字的界面（游戏 / 漫画 / 视觉小说画布、没有文本节点的界面）回退到下面的 OCR。
-            // 循环翻译不做短路：SETTLED_PAGE / 帧稳定性判定都依赖截屏，v1 仍走 OCR。
-            if (!loopMode && settings.a11yTextSourceEnabled) {
-                val a11yRegion = settings.captureRegion?.takeIf(CaptureRegion::isValid)
-                val a11yOrigin = captureRegionOrigin(a11yRegion)
-                val a11yRead = readA11yTextBlocks(
-                    settings = settings,
-                    screenWidth = screenNow.width,
-                    screenHeight = screenNow.height,
-                    filterRegion = a11yRegion?.let {
-                        Rect(it.left, it.top, it.right, it.bottom)
-                    },
-                    originX = a11yOrigin.x,
-                    originY = a11yOrigin.y,
-                    diagId = diagId,
-                )
-                if (a11yRead != null) {
-                    if (a11yRead.blocks.isNotEmpty()) {
-                        restoreCaptureChromeOnce(showLoading = showLoadingAfterScreenshot)
-                        applyOverlayConfig(settings, syncFloatingWindowLock = false)
-                        renderA11yTextBlocks(a11yRead.blocks, settings, diagId)
-                        return
-                    }
-                    if (screenshotter == null) {
-                        restoreCaptureChromeOnce(showLoading = false)
-                        val msg = getString(R.string.settings_a11y_text_source_no_capture)
-                        logRepository.error(LogRepository.Category.OCR, msg)
-                        mainScope.launch { overlay?.showErrorHint(msg) }
-                        return
-                    }
-                    logVerticalDiag(diagId, "a11y text source empty; fallback to screenshot OCR")
-                    logRepository.warn(
-                        LogRepository.Category.OCR,
-                        getString(R.string.settings_a11y_text_source_fallback),
-                    )
-                } else if (!GameOcrAccessibilityService.isConnected()) {
-                    // 开关已开、无障碍服务却没连上：本次回退截图 OCR，并把原因告诉用户。
-                    a11yServiceMissingDuringFallback = true
-                    logRepository.warn(
-                        LogRepository.Category.OCR,
-                        getString(R.string.settings_a11y_text_source_service_off),
-                    )
-                }
-            }
+            // 全屏 / 区域翻译一律走截图 OCR（用户要求）。无障碍节点取字只保留在划词
+            // （runWordSelectPipeline）与输入框取字场景——X 这类 App 常把正文塞进
+            // contentDescription，全屏节点取字读不到正文，故全屏强制 OCR 更可靠。
             var full = preparedFullScreen
             if (full != null) {
                 unclaimedPreparedFull = null
@@ -2644,11 +2601,6 @@ class CaptureService : Service() {
             logCaptureGeometry(diagId, "fullScreen", full)
             logBlankLikeFrame(diagId, "screenshot", fullStats)
             applyOverlayConfig(settings, syncFloatingWindowLock = false)
-            if (a11yServiceMissingDuringFallback) {
-                a11yServiceMissingDuringFallback = false
-                val msg = getString(R.string.settings_a11y_text_source_service_off)
-                mainScope.launch { overlay?.showInfoHint(msg) }
-            }
             logVerticalSettings(diagId, settings, screenNow.width, screenNow.height)
 
             val region = settings.captureRegion

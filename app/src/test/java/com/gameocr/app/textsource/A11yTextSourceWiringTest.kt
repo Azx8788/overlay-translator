@@ -93,27 +93,21 @@ class A11yTextSourceWiringTest {
     }
 
     @Test
-    fun capturePipeline_skipsScreenshotWhenTextIsReadableAndFallsBackOtherwise() {
+    fun capturePipeline_fullScreenForcesOcrAndWordSelectReadsA11yFirst() {
         val service = source("src/main/java/com/gameocr/app/service/CaptureService.kt")
 
-        val branch = service.indexOf("if (!loopMode && settings.a11yTextSourceEnabled) {")
-        val screenshot = service.indexOf("captureScreenshotWithTiming(shotter, diagId)", branch)
-        assertTrue("short circuit lives before the screenshot", branch >= 0)
-        assertTrue("screenshot follows the short circuit", screenshot > branch)
-        assertTrue(
-            "loop translation keeps the OCR path",
-            service.contains("// 循环翻译不做短路：SETTLED_PAGE / 帧稳定性判定都依赖截屏，v1 仍走 OCR。"),
-        )
-        assertTrue("readable text renders directly", service.contains("renderA11yTextBlocks(a11yRead.blocks, settings, diagId)"))
-        assertTrue(
-            "unreadable screens fall back to OCR",
-            service.contains("logVerticalDiag(diagId, \"a11y text source empty; fallback to screenshot OCR\")"),
+        // 全屏 / 区域翻译一律走截图 OCR：captureOnce 不再有无障碍短路分支（X 等 App 的正文常在
+        // contentDescription 里，全屏节点取字读不到，故强制 OCR）。
+        assertFalse(
+            "full-screen capture must not short-circuit to accessibility text",
+            service.contains("if (!loopMode && settings.a11yTextSourceEnabled) {"),
         )
         assertTrue(
-            "no capture backend surfaces a dedicated message",
-            service.contains("R.string.settings_a11y_text_source_no_capture"),
+            "full-screen forces screenshot OCR",
+            service.contains("全屏 / 区域翻译一律走截图 OCR"),
         )
 
+        // 划词仍然先读无障碍文本、读不到再截屏 OCR（无障碍保留在划词 / 输入框场景）。
         val reader = service.indexOf("var a11yBlocks = readA11yTextBlocks(")
         val wordSelectScreenshot = service.indexOf("captureScreenshotWithTiming(shotter, diagId)", reader)
         assertTrue("word select reads accessibility text first", reader >= 0)
@@ -121,6 +115,10 @@ class A11yTextSourceWiringTest {
         assertTrue(
             "word select skips the image-backed visual context when there is no screenshot",
             service.contains("if (extractTextOnly || croppedBitmap == null) settings else prepareVisualTranslationSettings("),
+        )
+        assertTrue(
+            "word select still falls back to OCR when accessibility text is empty",
+            service.contains("logVerticalDiag(diagId, \"a11y text source empty; fallback to screenshot OCR\")"),
         )
     }
 
