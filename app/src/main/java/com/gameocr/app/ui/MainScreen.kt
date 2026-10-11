@@ -573,15 +573,20 @@ fun MainScreen(
                 .padding(vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // 状态卡
-            StatusPresetCarousel(
-                initialPageIndex = initialStatusPresetPageIndex,
-                onPageChanged = onStatusPresetPageChanged,
+            // 状态：直接平铺，不再塞进上下滑的分页器
+            StatusCard(
                 canDrawOverlay = canDrawOverlay,
                 region = region,
                 shizukuAvail = shizukuAvail,
                 batteryOk = batteryOk,
                 serviceRunning = serviceRunning,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = MainScreenHorizontalPadding),
+            )
+
+            // 预设：直接平铺
+            PresetCarouselCard(
                 presets = presets,
                 activePresetId = presetPlans?.currentPresetId.orEmpty(),
                 modelIssuesByPreset = presetModelIssues,
@@ -599,56 +604,13 @@ fun MainScreen(
                 onPresetBlocked = {
                     scope.launch { snackbarHostState.showSnackbar(presetNotReadyMessage) }
                 },
-                showPresetDiscoveryHint =
-                    presetPageSeen == false &&
-                        mainGestureGuidesEnabled,
-                onPresetPageSeen = {
-                    if (presetPageSeen != true) {
-                        presetPageSeen = true
-                        scope.launch { viewModel.markMainStatusPresetSeen() }
-                    }
-                },
-                showPresetCarouselDiscoveryHint =
-                    presetCarouselSeen == false &&
-                        mainGestureGuidesEnabled,
-                onPresetCarouselSeen = {
-                    if (presetCarouselSeen != true) {
-                        presetCarouselSeen = true
-                        scope.launch { viewModel.markMainPresetCarouselSeen() }
-                    }
-                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = MainScreenHorizontalPadding),
             )
 
-            CaptureGalleryCarousel(
-                initialPageIndex = initialCarouselPageIndex,
-                onPageChanged = onCarouselPageChanged,
-                showDiscoveryHint =
-                        captureGallerySeen == false &&
-                        presetPageSeen == true &&
-                        presetCarouselSeen == true &&
-                        mainGestureGuidesEnabled,
-                onCarouselSeen = {
-                    if (captureGallerySeen != true) {
-                        captureGallerySeen = true
-                        scope.launch { viewModel.markMainCaptureGallerySeen() }
-                    }
-                },
-                captureMeasurementKey = listOf(
-                    canDrawOverlay,
-                    serviceRunning,
-                    startMode,
-                    shizukuAvail,
-                ),
-                galleryMeasurementKey = listOf(
-                    canDrawOverlay,
-                    featuredGalleryTaskState,
-                ),
-                capturePage = { pageModifier ->
-                    // 主操作：截屏服务
-                    ActionCard(
-                        title = stringResource(R.string.main_section_capture),
-                        modifier = pageModifier,
-                    ) {
+            // 主操作：截屏服务
+            ActionCard(title = stringResource(R.string.main_section_capture)) {
                 if (!showCaptureControls) {
                     Button(
                         enabled = !overlayPermissionRequestRunning,
@@ -805,13 +767,10 @@ fun MainScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                    }
-                },
-                galleryPage = { pageModifier ->
-                    ActionCard(
-                        title = stringResource(R.string.gallery_main_title),
-                        modifier = pageModifier,
-                    ) {
+            }
+
+            // 相册翻译
+            ActionCard(title = stringResource(R.string.gallery_main_title)) {
                 Text(
                     text = stringResource(R.string.gallery_main_empty),
                     style = MaterialTheme.typography.bodyMedium,
@@ -861,9 +820,7 @@ fun MainScreen(
                     }
                     MainGalleryTaskSlot.HIDDEN -> Unit
                 }
-                    }
-                },
-            )
+            }
 
             // 截屏区域入口暂时隐藏；按产品要求保留完整代码，便于后续恢复。
             /* BEGIN_DISABLED_SCREENSHOT_REGION
