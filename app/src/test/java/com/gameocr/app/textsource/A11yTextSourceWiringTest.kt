@@ -110,7 +110,7 @@ class A11yTextSourceWiringTest {
             service.contains("R.string.settings_a11y_text_source_no_capture"),
         )
 
-        val reader = service.indexOf("val a11yBlocks = readA11yTextBlocks(")
+        val reader = service.indexOf("var a11yBlocks = readA11yTextBlocks(")
         val wordSelectScreenshot = service.indexOf("captureScreenshotWithTiming(shotter, diagId)", reader)
         assertTrue("word select reads accessibility text first", reader >= 0)
         assertTrue("word select screenshot stays behind the reader", wordSelectScreenshot > reader)

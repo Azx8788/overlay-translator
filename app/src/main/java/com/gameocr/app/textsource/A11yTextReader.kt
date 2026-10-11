@@ -161,7 +161,9 @@ internal object A11yTextReader {
             // 子节点已经产出文本：父节点只有在完整覆盖子文本时才接手，否则保留更细的子条目。
             if (ownText != null) {
                 val normalizedOwn = ownText.withoutWhitespace()
-                if (normalizedOwn.length > childText.length && normalizedOwn.contains(childText)) {
+                // >= 而不是 >：WebView / Compose 段落里"整段文本 == 各内联碎片拼接"是常态，
+                // 恰好相等时由父节点接手才能按整段翻译，否则段落会被拆成碎句。
+                if (normalizedOwn.length >= childText.length && normalizedOwn.contains(childText)) {
                     val bounds = Rect()
                     if (acceptBounds(node, bounds)) {
                         while (entries.size > firstChildEntryIndex) {
