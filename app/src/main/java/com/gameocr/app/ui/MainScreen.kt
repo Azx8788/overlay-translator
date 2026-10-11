@@ -2139,6 +2139,7 @@ internal fun openOverlayPermissionSettings(context: Context) {
     }
 }
 
+@HiltViewModel
 class MainViewModel @Inject constructor(
     private val repo: SettingsRepository,
     galleryTranslationRepository: GalleryTranslationRepository,
