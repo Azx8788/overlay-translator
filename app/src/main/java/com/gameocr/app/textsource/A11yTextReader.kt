@@ -50,8 +50,9 @@ internal sealed interface A11yTextReadResult {
  *  2. 优先取叶子文本：子节点已经产出文本时，父节点只有在"自己的文本逐一覆盖了全部子片段"时才
  *     接手（例如推文正文里套着 #话题 / 链接等内联 ClickableSpan 虚拟子节点，整段正文才是要翻
  *     的单位）；否则保留子节点条目，避免把父节点的汇总描述重复翻译一遍；
- *  3. 跳过密码框、不可见 / 零面积节点与自家悬浮窗；可编辑输入框跳过已输入内容但仍读其占位符。
- *     不按控件类名过滤——按钮 / 标签页 / 图标文案对翻译同样有用，一并读出来才算取字全面。
+ *  3. 只翻译屏幕上可见的文字（node.text）；不读 contentDescription / hintText 这类无障碍标签，
+ *     否则图标按钮、菜单项会凭空叠出大量译文框，在密集列表里把画面糊成一片。密码框、可编辑
+ *     输入框、不可见 / 零面积节点与自家悬浮窗一律跳过。
  *
  * 必须在主线程调用；受 [MAX_NODES] / [TIME_BUDGET_MS] 预算保护，超预算即截断返回。
  */
@@ -187,26 +188,20 @@ internal object A11yTextReader {
         }
 
         /**
-         * 取节点自己的文本。密码框永远跳过；可编辑输入框跳过"已输入内容"（多半是用户自己打的字，
-         * 不是要翻译的目标），但仍读它的 contentDescription / hintText（占位符如"搜索"、"写回复"
-         * 属于界面文案，值得翻译）。不可见节点与自家悬浮窗节点跳过。
+         * 只取节点在屏幕上真实可见的文字（[AccessibilityNodeInfo.getText]）。
          *
-         * 不再按控件类名过滤：对翻译工具来说，按钮 / 标签页 / 图标的文案（"关注""设置""更多"）同样
-         * 是用户想看懂的界面文字，一并读出来才算"取字全面"。纯状态控件（进度条 / 拖动条）本身没有
-         * text/contentDescription，自然不会产出噪声。
+         * 刻意不读 contentDescription / hintText：它们绝大多数是图标按钮、菜单项、输入框占位符的
+         * 无障碍标签（如"回复""转帖""喜欢""显示翻译设置""让 Grok 解释此帖子""发帖选项"），屏幕上
+         * 并没有对应的可见文字。一旦连它们也翻译，就会凭空叠出大量译文框——在推文 / 聊天这类密集
+         * 列表里尤其会糊成一片，把原文和译文叠得看不清。屏幕翻译只翻"看得见的字"才干净。
+         *
+         * 密码框、可编辑输入框、不可见节点、自家悬浮窗节点一律跳过。
          */
         private fun readOwnText(node: AccessibilityNodeInfo): String? {
-            if (node.isPassword) return null
+            if (node.isPassword || node.isEditable) return null
             if (!node.isVisibleToUser) return null
             if (node.packageName?.toString() == ownPackage) return null
-            val typedText = if (node.isEditable) {
-                null
-            } else {
-                node.text?.toString()?.trim()?.takeIf(String::isNotEmpty)
-            }
-            return typedText
-                ?: node.contentDescription?.toString()?.trim()?.takeIf(String::isNotEmpty)
-                ?: node.hintText?.toString()?.trim()?.takeIf(String::isNotEmpty)
+            return node.text?.toString()?.trim()?.takeIf(String::isNotEmpty)
         }
 
         /** 控件必须在屏上有正面积；命中屏幕外的部分裁掉，保证 overlay 坐标可用。 */

@@ -68,8 +68,8 @@ class A11yTextSourceWiringTest {
             reader.contains("childFragments.all { normalizedOwn.contains(it) }"),
         )
         assertFalse(
-            "no blanket control-class exclusion: button / tab / icon labels stay translatable",
-            reader.contains("isExcludedA11yClass"),
+            "screen translation reads only visible text, never icon / menu a11y labels",
+            reader.contains("node.contentDescription") || reader.contains("node.hintText"),
         )
     }
 
