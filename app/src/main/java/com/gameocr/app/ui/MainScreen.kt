@@ -580,12 +580,15 @@ fun MainScreen(
                         modifier = Modifier.fillMaxWidth().height(52.dp),
                     ) { Text(stringResource(R.string.main_action_stop)) }
                 } else {
+                    val modeLabel =
+                        if (startMode == StartMode.SHIZUKU) "Shizuku"
+                        else stringResource(R.string.main_capture_system)
                     Button(
                         onClick = {
                             context.startActivity(CaptureStartRequestActivity.newIntent(context))
                         },
                         modifier = Modifier.fillMaxWidth().height(52.dp),
-                    ) { Text(stringResource(R.string.main_action_start)) }
+                    ) { Text(stringResource(R.string.main_action_start_format, modeLabel)) }
                 }
             } else {
                 Button(
@@ -619,28 +622,27 @@ fun MainScreen(
                 ) { Text(stringResource(R.string.main_action_grant_overlay_first)) }
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(
-                    stringResource(R.string.main_label_start_mode),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            val shizukuUsable =
+                shizukuAvail == ShizukuCapabilities.Availability.READY ||
+                    shizukuAvail == ShizukuCapabilities.Availability.INSTALLED_NOT_GRANTED
+            Text(
+                stringResource(R.string.main_label_start_mode),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 SegmentedButton(
                     selected = startMode == StartMode.SYSTEM,
                     onClick = { CaptureStartPreference.select(StartMode.SYSTEM) },
                     enabled = !serviceRunning,
-                    shape = RoundedCornerShape(6.dp),
+                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
                     label = { Text(stringResource(R.string.main_capture_system)) },
                 )
                 SegmentedButton(
                     selected = startMode == StartMode.SHIZUKU,
                     onClick = { CaptureStartPreference.select(StartMode.SHIZUKU) },
                     enabled = !serviceRunning && shizukuUsable,
-                    shape = RoundedCornerShape(6.dp),
+                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
                     label = { Text("Shizuku") },
                 )
             }
@@ -706,7 +708,7 @@ fun MainScreen(
                 )
             }
             PlainTextAction(
-                text = stringResource(R.string.main_preset_save_then_apply),
+                text = stringResource(R.string.menu_preset_switch),
                 onClick = { presetPickerOpen = true },
             )
             if (presetPickerOpen) {
@@ -748,7 +750,7 @@ fun MainScreen(
                     },
                     confirmButton = {
                         TextButton(onClick = { presetPickerOpen = false }) {
-                            Text(stringResource(android.R.string.cancel))
+                            Text(stringResource(R.string.main_preset_switch_cancel))
                         }
                     },
                 )
@@ -1218,11 +1220,9 @@ private fun UpdateResultDialog(
 }
 
 
-
 internal const val UPDATE_DIALOG_TAG = "update_dialog"
 internal const val UPDATE_DIALOG_RELEASE_NOTES_TAG = "update_dialog_release_notes"
 
-@Composable
 
 private const val CAPTURE_GALLERY_PAGE_COUNT = 2
 private const val CAPTURE_CAROUSEL_PAGE = 0
@@ -1287,7 +1287,6 @@ internal fun horizontalDiscoveryGuideYOffsetDp(
     HorizontalDiscoveryGuideHost.CAPTURE_SERVICE -> 24
 }
 
-@Composable
 
 @Composable
 private fun MainGalleryTaskSummary(
@@ -1305,7 +1304,6 @@ private fun MainGalleryTaskSummary(
     }
 }
 
-@Composable
 
 @Composable
 private fun MainGalleryTaskSummaryPlaceholder() {
@@ -1319,7 +1317,6 @@ private fun MainGalleryTaskSummaryPlaceholder() {
     }
 }
 
-@Composable
 
 @Composable
 private fun MainGalleryTaskEmptyPlaceholder() {
@@ -1341,7 +1338,6 @@ private fun MainGalleryTaskEmptyPlaceholder() {
     }
 }
 
-@Composable
 
 @Composable
 private fun MainGalleryTaskSummaryContent(
@@ -1506,7 +1502,6 @@ internal fun mainGalleryTaskPresetLabel(
     else -> storedName
 }
 
-@Composable
 
 private const val STATUS_PRESET_PAGE_COUNT = 2
 private const val STATUS_PAGE = 0
@@ -1535,7 +1530,6 @@ internal fun shouldRunMainStatusPresetHint(
 internal fun mainStatusPresetPageWasSeen(settledPage: Int, pageCount: Int): Boolean =
     pageCount > PRESET_PAGE && settledPage == PRESET_PAGE
 
-@Composable
 
 @Composable
 private fun StatusCard(
@@ -1596,7 +1590,6 @@ private fun StatusCard(
     }
 }
 
-@Composable
 
 @Composable
 internal fun PresetCarouselCard(
@@ -1656,7 +1649,6 @@ internal fun PresetCarouselCard(
     }
 }
 
-@Composable
 
 @Composable
 internal fun PresetCarousel(
@@ -2055,7 +2047,6 @@ internal fun presetCarouselOutwardRotation(pageOffset: Float, maxRotation: Float
 internal fun presetCarouselScale(pageOffset: Float): Float =
     1f - abs(pageOffset.coerceIn(-1f, 1f)) * 0.08f
 
-@Composable
 
 @Composable
 private fun StatusRow(label: String, ok: Boolean, detail: String? = null) {
@@ -2084,7 +2075,6 @@ private fun StatusRow(label: String, ok: Boolean, detail: String? = null) {
     }
 }
 
-@Composable
 
 @Composable
 private fun ActionCard(
@@ -2117,11 +2107,7 @@ private fun ActionCard(
     }
 }
 
-/**
- * 自动检查更新时的全屏 Loading 遮罩：半透明 scrim + 中央 spinner + 「检查更新…」文案。
- * - `clickable` 但 indication=null + 空 onClick 用来吞掉点击事件，防止用户在遮罩期间瞎点底下控件。
- * - 不挡 [AlertDialog]：Dialog 是独立 Window 层，会盖在这个遮罩之上。
- */
+/** 纯文字动作项：一行可点文字，无边框无底色。 */
 @Composable
 private fun PlainTextAction(text: String, onClick: () -> Unit) {
     Text(
@@ -2135,57 +2121,17 @@ private fun PlainTextAction(text: String, onClick: () -> Unit) {
     )
 }
 
-@Composable
-internal fun AboutContent(
-    onOpenLegalNotices: () -> Unit,
-    onShareApp: () -> Unit,
-) {
-    val context = LocalContext.current
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        OutlinedButton(
-            onClick = {
-                runCatching {
-                    context.startActivity(
-                        Intent(Intent.ACTION_VIEW, Uri.parse(GITHUB_URL))
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    )
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text(stringResource(R.string.settings_about_open_github)) }
-        OutlinedButton(
-            onClick = {
-                runCatching {
-                    context.startActivity(
-                        Intent(Intent.ACTION_VIEW, Uri.parse(USER_GUIDE_URL))
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    )
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text(stringResource(R.string.settings_about_user_guide)) }
-        OutlinedButton(
-            onClick = onOpenLegalNotices,
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text(stringResource(R.string.settings_about_view_licenses)) }
-        OutlinedButton(
-            onClick = onShareApp,
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text(stringResource(R.string.settings_about_share_action)) }
-        OutlinedButton(
-            onClick = {
-                runCatching {
-                    context.startActivity(
-                        Intent(Intent.ACTION_VIEW, Uri.parse(QQ_GROUP_URL))
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    )
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text(stringResource(R.string.settings_about_join_qq_group)) }
+
+internal fun openOverlayPermissionSettings(context: Context) {
+    val appSpecificIntent = Intent(
+        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+        Uri.parse("package:${context.packageName}"),
+    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    if (runCatching { context.startActivity(appSpecificIntent) }.isFailure) {
+        context.startActivity(
+            Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
     }
 }
 
