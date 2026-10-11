@@ -158,6 +158,9 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.layout.heightIn
 
 @SuppressLint("ProduceStateDoesNotAssignValue")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -566,316 +569,230 @@ fun MainScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { inner ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(inner)
-                .verticalScroll(rememberScrollState())
-                .padding(vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            // 状态：直接平铺，不再塞进上下滑的分页器
-            StatusCard(
-                canDrawOverlay = canDrawOverlay,
-                region = region,
-                shizukuAvail = shizukuAvail,
-                batteryOk = batteryOk,
-                serviceRunning = serviceRunning,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = MainScreenHorizontalPadding),
-            )
-
-            // 预设：直接平铺
-            PresetCarouselCard(
-                presets = presets,
-                activePresetId = presetPlans?.currentPresetId.orEmpty(),
-                modelIssuesByPreset = presetModelIssues,
-                onPresetSelected = { preset ->
-                    if (shouldConfirmUnsavedPresetSwitch(
-                            currentPresetId = presetPlans?.currentPresetId.orEmpty(),
-                            targetPresetId = preset.id,
-                        )
-                    ) {
-                        pendingPresetSwitch = preset
-                    } else {
-                        applyPresetNow(preset)
-                    }
-                },
-                onPresetBlocked = {
-                    scope.launch { snackbarHostState.showSnackbar(presetNotReadyMessage) }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = MainScreenHorizontalPadding),
-            )
-
-            // 主操作：截屏服务
-            ActionCard(title = stringResource(R.string.main_section_capture)) {
-                if (!showCaptureControls) {
-                    Button(
-                        enabled = !overlayPermissionRequestRunning,
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
-                        onClick = {
-                            if (overlayPermissionRequestRunning) return@Button
-                            overlayPermissionRequestRunning = true
-                            scope.launch {
-                                try {
-                                    shizukuAvail = viewModel.shizukuAvailability(context)
-                                    val action = resolveOverlayPermissionEntryAction(
-                                        overlayPermissionGranted = Settings.canDrawOverlays(context),
-                                        shizukuAvailability = shizukuAvail,
-                                    )
-                                    val granted = when (action) {
-                                        OverlayPermissionEntryAction.ALREADY_GRANTED -> true
-                                        OverlayPermissionEntryAction.TRY_SHIZUKU ->
-                                            viewModel.grantOverlayPermissionViaShizuku()
-                                        OverlayPermissionEntryAction.OPEN_SYSTEM_SETTINGS -> false
-                                    }
-                                    canDrawOverlay = Settings.canDrawOverlays(context)
-                                    shizukuAvail = viewModel.shizukuAvailability(context)
-                                    if (!granted || !canDrawOverlay) {
-                                        openOverlayPermissionSettings(context)
-                                    }
-                                } finally {
-                                    overlayPermissionRequestRunning = false
-                                }
-                            }
-                        }
-                    ) { Text(stringResource(R.string.main_action_grant_overlay_first)) }
+            // 一行实心按钮：开始 / 停止（未授权时就是授权入口）
+            if (canDrawOverlay) {
+                if (serviceRunning) {
+                    OutlinedButton(
+                        onClick = { context.startService(CaptureService.stopIntent(context)) },
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                    ) { Text(stringResource(R.string.main_action_stop)) }
                 } else {
-                    val shizukuUsable = shizukuAvail == ShizukuCapabilities.Availability.READY ||
-                        shizukuAvail == ShizukuCapabilities.Availability.INSTALLED_NOT_GRANTED
-
-                    // 大主按钮：未运行 → primary 色"启动"；运行中 → error 色"停止"
-                    if (serviceRunning) {
-                        Button(
-                            modifier = Modifier.fillMaxWidth().height(56.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer,
-                                contentColor = MaterialTheme.colorScheme.onErrorContainer
-                            ),
-                            onClick = { context.startService(CaptureService.stopIntent(context)) }
-                        ) {
-                            Icon(Icons.Default.Stop, contentDescription = null)
-                            Text("  ${stringResource(R.string.main_action_stop)}", modifier = Modifier.padding(start = 4.dp))
-                        }
-                    } else {
-                        val modeLabel = if (startMode == StartMode.SHIZUKU) "Shizuku" else stringResource(R.string.main_capture_system)
-                        Button(
-                            modifier = Modifier.fillMaxWidth().height(56.dp),
-                            onClick = {
-                                context.startActivity(CaptureStartRequestActivity.newIntent(context))
+                    Button(
+                        onClick = {
+                            context.startActivity(CaptureStartRequestActivity.newIntent(context))
+                        },
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                    ) { Text(stringResource(R.string.main_action_start)) }
+                }
+            } else {
+                Button(
+                    enabled = !overlayPermissionRequestRunning,
+                    onClick = {
+                        if (overlayPermissionRequestRunning) return@Button
+                        overlayPermissionRequestRunning = true
+                        scope.launch {
+                            try {
+                                shizukuAvail = viewModel.shizukuAvailability(context)
+                                val action = resolveOverlayPermissionEntryAction(
+                                    overlayPermissionGranted = Settings.canDrawOverlays(context),
+                                    shizukuAvailability = shizukuAvail,
+                                )
+                                val granted = when (action) {
+                                    OverlayPermissionEntryAction.ALREADY_GRANTED -> true
+                                    OverlayPermissionEntryAction.TRY_SHIZUKU ->
+                                        viewModel.grantOverlayPermissionViaShizuku()
+                                    OverlayPermissionEntryAction.OPEN_SYSTEM_SETTINGS -> false
+                                }
+                                canDrawOverlay = Settings.canDrawOverlays(context)
+                                if (!granted || !canDrawOverlay) {
+                                    openOverlayPermissionSettings(context)
+                                }
+                            } finally {
+                                overlayPermissionRequestRunning = false
                             }
-                        ) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = null)
-                            Text(
-                                "  ${stringResource(R.string.main_action_start_format, modeLabel)}",
-                                modifier = Modifier.padding(start = 4.dp)
-                            )
                         }
-                    }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                ) { Text(stringResource(R.string.main_action_grant_overlay_first)) }
+            }
 
-                    // 启动方式 tabs：服务运行中禁止切换；Shizuku 不可用时该项禁用
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    stringResource(R.string.main_label_start_mode),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                SegmentedButton(
+                    selected = startMode == StartMode.SYSTEM,
+                    onClick = { CaptureStartPreference.select(StartMode.SYSTEM) },
+                    enabled = !serviceRunning,
+                    shape = RoundedCornerShape(6.dp),
+                    label = { Text(stringResource(R.string.main_capture_system)) },
+                )
+                SegmentedButton(
+                    selected = startMode == StartMode.SHIZUKU,
+                    onClick = { CaptureStartPreference.select(StartMode.SHIZUKU) },
+                    enabled = !serviceRunning && shizukuUsable,
+                    shape = RoundedCornerShape(6.dp),
+                    label = { Text("Shizuku") },
+                )
+            }
+
+            // 状态：纯文字行，无卡片无装饰
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    stringResource(
+                        if (serviceRunning) R.string.main_status_running
+                        else R.string.main_status_idle
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (serviceRunning) MaterialTheme.colorScheme.onSurface
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (!canDrawOverlay) {
                     Text(
-                        stringResource(R.string.main_label_start_mode),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                        SegmentedButton(
-                            selected = startMode == StartMode.SYSTEM,
-                            onClick = {
-                                CaptureStartPreference.select(StartMode.SYSTEM)
-                            },
-                            enabled = !serviceRunning,
-                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                            label = { Text(stringResource(R.string.main_capture_system)) }
-                        )
-                        SegmentedButton(
-                            selected = startMode == StartMode.SHIZUKU,
-                            onClick = {
-                                CaptureStartPreference.select(StartMode.SHIZUKU)
-                            },
-                            enabled = !serviceRunning && shizukuUsable,
-                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                            label = { Text("Shizuku") }
-                        )
-                    }
-                    val hintRes = when {
-                        startMode == StartMode.SYSTEM -> R.string.main_hint_media_projection
-                        shizukuAvail == ShizukuCapabilities.Availability.READY -> R.string.main_hint_shizuku_ready
-                        shizukuAvail == ShizukuCapabilities.Availability.INSTALLED_NOT_GRANTED -> R.string.main_hint_shizuku_not_granted
-                        shizukuAvail == ShizukuCapabilities.Availability.INSTALLED_NOT_PAIRED -> R.string.main_hint_shizuku_not_paired
-                        shizukuAvail == ShizukuCapabilities.Availability.INSTALLED_COMPATIBILITY_REQUIRED -> R.string.main_hint_shizuku_compatibility_required
-                        shizukuAvail == ShizukuCapabilities.Availability.NOT_RUNNING -> R.string.main_hint_shizuku_not_running
-                        else -> R.string.main_hint_shizuku_not_installed
-                    }
-                    Text(
-                        stringResource(hintRes),
+                        stringResource(R.string.main_action_grant_overlay_first),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-
-                // 可启动时使用完整说明布局；需要单独授权时紧凑显示授权提示。
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (showCaptureControls) {
-                        Text(
-                            stringResource(R.string.main_label_usage),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                Text(
+                    if (region == null) {
+                        stringResource(R.string.main_status_region_full)
                     } else {
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(2.dp),
-                        ) {
-                            Text(
-                                stringResource(R.string.main_label_usage),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Text(
-                                stringResource(mainUsageTextRes(showCaptureControls)),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                    TextButton(onClick = onOpenOnboarding) {
-                        Icon(
-                            Icons.AutoMirrored.Outlined.HelpOutline,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                        )
-                        Text(
-                            stringResource(R.string.main_help),
-                            modifier = Modifier.padding(start = 4.dp),
-                        )
-                    }
-                }
-                if (showCaptureControls) {
+                        stringResource(R.string.main_status_region_format, region!!.width, region!!.height, region!!.left, region!!.top)
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (batteryOk) {
                     Text(
-                        stringResource(mainUsageTextRes(showCaptureControls)),
+                        stringResource(R.string.main_status_battery_whitelist),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (accessibilityServiceEnabled) {
+                    Text(
+                        stringResource(R.string.settings_btn_a11y_enabled),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
 
-            // 相册翻译
-            ActionCard(title = stringResource(R.string.gallery_main_title)) {
+            // 预设：标题 + 当前值 + 换一个（点了才弹选择，平时不占地方）
+            var presetPickerOpen by remember { mutableStateOf(false) }
+            val activePresetName = presets
+                .firstOrNull { it.id == presetPlans?.currentPresetId.orEmpty() }
+                ?.let { translationPresetDisplayName(it) }
+                .orEmpty()
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
-                    text = stringResource(R.string.gallery_main_empty),
-                    style = MaterialTheme.typography.bodyMedium,
+                    stringResource(R.string.main_preset_title),
+                    style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Button(
-                    modifier = Modifier.fillMaxWidth(),
-                    onClick = {
-                        galleryPicker.launch(
-                            PickVisualMediaRequest(
-                                ActivityResultContracts.PickVisualMedia.ImageOnly
-                            )
-                        )
-                    },
-                ) {
-                    Icon(Icons.Default.AddPhotoAlternate, contentDescription = null)
-                    Text(
-                        stringResource(R.string.gallery_main_import),
-                        modifier = Modifier.padding(start = 6.dp),
-                    )
-                }
-                OutlinedButton(
-                    modifier = Modifier.fillMaxWidth(),
-                    onClick = onOpenGalleryTasks,
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.List, contentDescription = null)
-                    Text(
-                        stringResource(R.string.gallery_main_all_tasks),
-                        modifier = Modifier.padding(start = 6.dp),
-                    )
-                }
-                when (
-                    mainGalleryTaskSlot(
-                        canDrawOverlay = canDrawOverlay,
-                        isLoaded = featuredGalleryTaskState is MainGalleryTaskLoadState.Loaded,
-                        hasTask = featuredGalleryTask != null,
-                    )
-                ) {
-                    MainGalleryTaskSlot.PLACEHOLDER -> MainGalleryTaskSummaryPlaceholder()
-                    MainGalleryTaskSlot.EMPTY -> MainGalleryTaskEmptyPlaceholder()
-                    MainGalleryTaskSlot.TASK -> {
-                        val task = requireNotNull(featuredGalleryTask)
-                        MainGalleryTaskSummary(
-                            task = task,
-                            onClick = { onOpenGalleryTask(task.id) },
-                        )
-                    }
-                    MainGalleryTaskSlot.HIDDEN -> Unit
-                }
+                Text(
+                    text = activePresetName.ifEmpty { stringResource(R.string.main_preset_loading) },
+                    style = MaterialTheme.typography.bodyLarge,
+                )
             }
-
-            // 截屏区域入口暂时隐藏；按产品要求保留完整代码，便于后续恢复。
-            /* BEGIN_DISABLED_SCREENSHOT_REGION
-            ActionCard(title = stringResource(R.string.main_section_region)) {
-                OutlinedButton(
-                    modifier = Modifier.fillMaxWidth(),
-                    onClick = {
-                        // serviceRunning 时走 CaptureService 的 overlay 路径——floating window 模式，
-                        // 绕开 Activity 在 HyperOS 横屏 long-edge cutout 上被强制 letterbox 的 OS 级硬限制。
-                        // overlay 是 TYPE_APPLICATION_OVERLAY，会直接覆盖到当前主屏上方，无需切走 Activity。
-                        // service 没跑时 fallback 到老 Activity 路径（这种场景通常竖屏，letterbox 影响小）。
-                        if (serviceRunning) {
-                            val intent = Intent(context, CaptureService::class.java).apply {
-                                action = CaptureService.ACTION_PICK_REGION
+            PlainTextAction(
+                text = stringResource(R.string.main_preset_save_then_apply),
+                onClick = { presetPickerOpen = true },
+            )
+            if (presetPickerOpen) {
+                AlertDialog(
+                    onDismissRequest = { presetPickerOpen = false },
+                    title = { Text(stringResource(R.string.main_preset_title)) },
+                    text = {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 360.dp)
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
+                            presets.forEach { preset ->
+                                val label = translationPresetDisplayName(preset)
+                                val selected = preset.id == presetPlans?.currentPresetId.orEmpty()
+                                Text(
+                                    text = if (selected) "$label ✓" else label,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            presetPickerOpen = false
+                                            if (shouldConfirmUnsavedPresetSwitch(
+                                                    currentPresetId = presetPlans?.currentPresetId.orEmpty(),
+                                                    targetPresetId = preset.id,
+                                                )
+                                            ) {
+                                                pendingPresetSwitch = preset
+                                            } else {
+                                                applyPresetNow(preset)
+                                            }
+                                        }
+                                        .padding(vertical = 12.dp),
+                                )
                             }
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                ContextCompat.startForegroundService(context, intent)
-                            } else {
-                                context.startService(intent)
-                            }
-                        } else {
-                            context.startActivity(RegionPickerActivity.newIntent(context))
                         }
-                    }
-                ) { Text(stringResource(R.string.main_btn_pick_region)) }
-                if (region != null) {
-                    // 跟「选择截屏区域」按钮同样的 OutlinedButton 样式，视觉对等；
-                    // 清除是破坏性操作，弹二次确认避免误触。
-                    OutlinedButton(
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = { showClearRegionDialog = true }
-                    ) { Text(stringResource(R.string.main_btn_clear_region)) }
-                }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { presetPickerOpen = false }) {
+                            Text(stringResource(android.R.string.cancel))
+                        }
+                    },
+                )
             }
-            END_DISABLED_SCREENSHOT_REGION */
 
-            // 系统兼容：自启动 + 电池白名单是两件事，拆成两个按钮分别引导。
-            // 电池白名单可通过 PowerManager 检测当前状态，已加入时按钮显示已开启并禁用，
-            // 让用户清楚下一步该点哪个；自启动没有公开 API 可探测，按钮始终可点。
-            ActionCard(title = stringResource(R.string.main_section_rom_guide)) {
+            // 相册翻译：一行文字入口
+            PlainTextAction(
+                text = stringResource(R.string.gallery_main_title),
+                onClick = {
+                    galleryPicker.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                    )
+                },
+            )
+            PlainTextAction(
+                text = stringResource(R.string.gallery_main_all_tasks),
+                onClick = onOpenGalleryTasks,
+            )
+
+            // 系统与优化：一行按钮，不占地方
+            Text(
+                stringResource(R.string.main_section_rom_guide),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 OutlinedButton(
-                    modifier = Modifier.fillMaxWidth(),
                     onClick = {
                         RomHelper.launchFirstAvailable(context, RomHelper.autoStartIntents(context))
-                    }
+                    },
+                    modifier = Modifier.weight(1f),
                 ) { Text(stringResource(R.string.main_btn_open_autostart)) }
                 OutlinedButton(
                     enabled = !batteryOk,
-                    modifier = Modifier.fillMaxWidth(),
                     onClick = {
                         RomHelper.launchFirstAvailable(
                             context,
                             RomHelper.batteryWhitelistIntents(context)
                         )
-                    }
+                    },
+                    modifier = Modifier.weight(1f),
                 ) {
                     Text(
                         stringResource(
@@ -884,39 +801,44 @@ fun MainScreen(
                         )
                     )
                 }
-                OutlinedButton(
-                    enabled = !accessibilityServiceEnabled,
-                    modifier = Modifier.fillMaxWidth(),
-                    onClick = {
-                        scope.launch {
-                            if (!viewModel.enableAccessibilityViaShizuku()) {
-                                context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                            }
-                            accessibilityServiceEnabled = AccessibilityServiceStatus.isEnabled(context)
+            }
+            OutlinedButton(
+                enabled = !accessibilityServiceEnabled,
+                onClick = {
+                    scope.launch {
+                        if (!viewModel.enableAccessibilityViaShizuku()) {
+                            context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                         }
-                    },
-                ) {
-                    Text(
-                        stringResource(
-                            if (accessibilityServiceEnabled) {
-                                R.string.settings_btn_a11y_enabled
-                            } else {
-                                R.string.settings_btn_open_a11y
-                            }
-                        )
+                        accessibilityServiceEnabled = AccessibilityServiceStatus.isEnabled(context)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    stringResource(
+                        if (accessibilityServiceEnabled) {
+                            R.string.settings_btn_a11y_enabled
+                        } else {
+                            R.string.settings_btn_open_a11y
+                        }
                     )
-                }
+                )
             }
 
-            // 关于：放在主屏底部，方便用户一眼看到版本号 / GitHub
-            ActionCard(title = stringResource(R.string.settings_section_about)) {
+            // 关于：折叠成一行，点开才有内容
+            var aboutOpen by remember { mutableStateOf(false) }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            PlainTextAction(
+                text = stringResource(R.string.settings_section_about),
+                onClick = { aboutOpen = !aboutOpen },
+            )
+            if (aboutOpen) {
                 AboutContent(
                     onOpenLegalNotices = onOpenLegalNotices,
                     onShareApp = onShareApp,
                 )
             }
 
-            // 底部留空
             Box(Modifier.size(24.dp))
         }
     }
@@ -1080,6 +1002,31 @@ private fun launchAppShare(
     }
 }
 
+
+private val MainScreenHorizontalPadding = 16.dp
+
+@Composable
+private fun AutoUpdateCheckOverlay() {
+    val source = remember { MutableInteractionSource() }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.45f))
+            .clickable(interactionSource = source, indication = null) { /* 吞点击 */ },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            CircularProgressIndicator(color = Color.White)
+            Text(
+                text = stringResource(R.string.update_auto_checking),
+                color = Color.White
+            )
+        }
+    }
+}
 @Composable
 private fun SharePromptDialog(
     onShare: () -> Unit,
@@ -1270,187 +1217,12 @@ private fun UpdateResultDialog(
     }
 }
 
+
+
 internal const val UPDATE_DIALOG_TAG = "update_dialog"
 internal const val UPDATE_DIALOG_RELEASE_NOTES_TAG = "update_dialog_release_notes"
 
 @Composable
-private fun CaptureGalleryCarousel(
-    initialPageIndex: Int,
-    onPageChanged: (Int) -> Unit,
-    showDiscoveryHint: Boolean,
-    onCarouselSeen: () -> Unit,
-    captureMeasurementKey: Any?,
-    galleryMeasurementKey: Any?,
-    capturePage: @Composable (Modifier) -> Unit,
-    galleryPage: @Composable (Modifier) -> Unit,
-) {
-    val initialPage = remember { captureGalleryCarouselInitialPage(initialPageIndex) }
-    val pagerState = rememberPagerState(initialPage = initialPage) { Int.MAX_VALUE }
-    val currentOnPageChanged by rememberUpdatedState(onPageChanged)
-    val currentOnCarouselSeen by rememberUpdatedState(onCarouselSeen)
-    val density = LocalDensity.current
-    var captureHeightPx by remember { mutableIntStateOf(0) }
-    var galleryHeightPx by remember { mutableIntStateOf(0) }
-    var discoveryHintPlayed by rememberSaveable { mutableStateOf(false) }
-    var discoveryGuideVisible by remember { mutableStateOf(false) }
-    var discoveryScrollObserved by remember(pagerState) { mutableStateOf(false) }
-    var discoveryScrollStartPage by remember(pagerState) {
-        mutableIntStateOf(pagerState.settledPage)
-    }
-    LaunchedEffect(pagerState) {
-        snapshotFlow { pagerState.isScrollInProgress to pagerState.settledPage }
-            .distinctUntilChanged()
-            .collect { (scrolling, settledPage) ->
-                if (scrolling) {
-                    if (!discoveryScrollObserved) {
-                        discoveryScrollStartPage = settledPage
-                    }
-                    discoveryScrollObserved = true
-                    discoveryGuideVisible = false
-                } else {
-                    currentOnPageChanged(captureGalleryCarouselPageIndex(settledPage))
-                    if (
-                        discoveryScrollObserved &&
-                        settledPage != discoveryScrollStartPage
-                    ) {
-                        currentOnCarouselSeen()
-                    }
-                    discoveryScrollObserved = false
-                }
-            }
-    }
-    LaunchedEffect(pagerState, showDiscoveryHint) {
-        discoveryGuideVisible = false
-        if (!showDiscoveryHint) return@LaunchedEffect
-        delay(HORIZONTAL_DISCOVERY_HINT_DELAY_MS)
-        if (
-            !shouldRunHorizontalDiscoveryHint(
-                hintEnabled = showDiscoveryHint,
-                hintAlreadyPlayed = discoveryHintPlayed,
-                hostVisible = captureGalleryCarouselPageIndex(pagerState.settledPage) ==
-                    CAPTURE_CAROUSEL_PAGE,
-                isScrollInProgress = pagerState.isScrollInProgress,
-                itemCount = CAPTURE_GALLERY_PAGE_COUNT,
-            )
-        ) {
-            return@LaunchedEffect
-        }
-        discoveryHintPlayed = true
-        discoveryGuideVisible = true
-        try {
-            delay(HORIZONTAL_DISCOVERY_HINT_VISIBLE_MS)
-        } finally {
-            discoveryGuideVisible = false
-        }
-    }
-    LaunchedEffect(captureMeasurementKey) {
-        captureHeightPx = 0
-    }
-    LaunchedEffect(galleryMeasurementKey) {
-        galleryHeightPx = 0
-    }
-    val commonHeightPx = captureGalleryCarouselCommonHeightPx(
-        captureHeightPx = captureHeightPx,
-        galleryHeightPx = galleryHeightPx,
-    )
-    val commonHeight = commonHeightPx?.let { with(density) { it.toDp() } }
-    val indicatorPage = captureGalleryCarouselPageIndex(pagerState.currentPage)
-
-    Column(modifier = Modifier.fillMaxWidth()) {
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier
-                .fillMaxWidth()
-                .then(
-                    commonHeight?.let { Modifier.height(it) }
-                        ?: Modifier.wrapContentHeight()
-                ),
-            beyondViewportPageCount = 1,
-        ) { page ->
-            val pageOffset = (
-                (page - pagerState.currentPage) - pagerState.currentPageOffsetFraction
-            ).coerceIn(-1f, 1f)
-            val pivotX = when {
-                pageOffset < 0f -> 1f
-                pageOffset > 0f -> 0f
-                else -> 0.5f
-            }
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        rotationY = captureGalleryCarouselRotation(pageOffset)
-                        cameraDistance = 16f * density.density
-                        transformOrigin = TransformOrigin(pivotX, 0.5f)
-                    },
-            ) {
-                when (captureGalleryCarouselPageIndex(page)) {
-                    CAPTURE_CAROUSEL_PAGE -> capturePage(
-                        Modifier
-                            .onSizeChanged { size ->
-                                if (commonHeightPx == null && size.height > 0) {
-                                    captureHeightPx = size.height
-                                }
-                            }
-                            .then(
-                                if (commonHeightPx != null) Modifier.fillMaxHeight()
-                                else Modifier
-                            )
-                    )
-                    GALLERY_CAROUSEL_PAGE -> galleryPage(
-                        Modifier
-                            .onSizeChanged { size ->
-                                if (commonHeightPx == null && size.height > 0) {
-                                    galleryHeightPx = size.height
-                                }
-                            }
-                            .then(
-                                if (commonHeightPx != null) Modifier.fillMaxHeight()
-                                else Modifier
-                            )
-                    )
-                }
-                if (discoveryGuideVisible && page == pagerState.currentPage) {
-                    SwipeHorizontalGuide(
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .offset(
-                                y = horizontalDiscoveryGuideYOffsetDp(
-                                    HorizontalDiscoveryGuideHost.CAPTURE_SERVICE,
-                                ).dp,
-                            )
-                            .size(width = 200.dp, height = 84.dp),
-                    )
-                }
-            }
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            repeat(CAPTURE_GALLERY_PAGE_COUNT) { page ->
-                val selected = page == indicatorPage
-                Surface(
-                    modifier = Modifier
-                        .padding(horizontal = 3.dp)
-                        .size(
-                            width = if (selected) 18.dp else 6.dp,
-                            height = 6.dp,
-                        ),
-                    shape = CircleShape,
-                    color = if (selected) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.outlineVariant
-                    },
-                ) {}
-            }
-        }
-    }
-}
 
 private const val CAPTURE_GALLERY_PAGE_COUNT = 2
 private const val CAPTURE_CAROUSEL_PAGE = 0
@@ -1516,6 +1288,8 @@ internal fun horizontalDiscoveryGuideYOffsetDp(
 }
 
 @Composable
+
+@Composable
 private fun MainGalleryTaskSummary(
     task: GalleryTranslationTaskEntity,
     onClick: () -> Unit,
@@ -1532,6 +1306,8 @@ private fun MainGalleryTaskSummary(
 }
 
 @Composable
+
+@Composable
 private fun MainGalleryTaskSummaryPlaceholder() {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -1542,6 +1318,8 @@ private fun MainGalleryTaskSummaryPlaceholder() {
         MainGalleryTaskSummaryContent(task = null)
     }
 }
+
+@Composable
 
 @Composable
 private fun MainGalleryTaskEmptyPlaceholder() {
@@ -1562,6 +1340,8 @@ private fun MainGalleryTaskEmptyPlaceholder() {
         }
     }
 }
+
+@Composable
 
 @Composable
 private fun MainGalleryTaskSummaryContent(
@@ -1727,152 +1507,6 @@ internal fun mainGalleryTaskPresetLabel(
 }
 
 @Composable
-private fun StatusPresetCarousel(
-    initialPageIndex: Int,
-    onPageChanged: (Int) -> Unit,
-    canDrawOverlay: Boolean,
-    region: CaptureRegion?,
-    shizukuAvail: ShizukuCapabilities.Availability,
-    batteryOk: Boolean,
-    serviceRunning: Boolean,
-    presets: List<TranslationPreset>,
-    activePresetId: String,
-    modelIssuesByPreset: Map<String, List<TranslationPresetModelIssue>>?,
-    onPresetSelected: (TranslationPreset) -> Unit,
-    onPresetBlocked: () -> Unit,
-    showPresetDiscoveryHint: Boolean,
-    onPresetPageSeen: () -> Unit,
-    showPresetCarouselDiscoveryHint: Boolean,
-    onPresetCarouselSeen: () -> Unit,
-) {
-    val initialPage = remember {
-        mainStatusPresetInitialPage(initialPageIndex)
-    }
-    val pagerState = rememberPagerState(
-        initialPage = initialPage,
-        pageCount = { STATUS_PRESET_PAGE_COUNT },
-    )
-    val currentOnPageChanged by rememberUpdatedState(onPageChanged)
-    val currentOnPresetPageSeen by rememberUpdatedState(onPresetPageSeen)
-    var discoveryHintPlayed by rememberSaveable { mutableStateOf(false) }
-    var discoveryGuideVisible by remember { mutableStateOf(false) }
-
-    LaunchedEffect(pagerState) {
-        snapshotFlow { pagerState.settledPage }
-            .distinctUntilChanged()
-            .collect { settledPage ->
-                currentOnPageChanged(settledPage)
-                if (mainStatusPresetPageWasSeen(settledPage, pagerState.pageCount)) {
-                    currentOnPresetPageSeen()
-                }
-            }
-    }
-
-    LaunchedEffect(pagerState, showPresetDiscoveryHint) {
-        if (!showPresetDiscoveryHint) return@LaunchedEffect
-        delay(STATUS_PRESET_DISCOVERY_HINT_DELAY_MS)
-        if (
-            !shouldRunMainStatusPresetHint(
-                presetPageSeen = false,
-                hintAlreadyPlayed = discoveryHintPlayed,
-                settledPage = pagerState.settledPage,
-                isScrollInProgress = pagerState.isScrollInProgress,
-                pageCount = pagerState.pageCount,
-            )
-        ) {
-            return@LaunchedEffect
-        }
-
-        discoveryHintPlayed = true
-        discoveryGuideVisible = true
-        try {
-            pagerState.animateScrollToPage(
-                page = STATUS_PAGE,
-                pageOffsetFraction = STATUS_PRESET_DISCOVERY_HINT_OFFSET_FRACTION,
-                animationSpec = tween(
-                    durationMillis = STATUS_PRESET_DISCOVERY_HINT_REVEAL_MS,
-                    easing = FastOutSlowInEasing,
-                ),
-            )
-            delay(STATUS_PRESET_DISCOVERY_HINT_HOLD_MS)
-            pagerState.animateScrollToPage(
-                page = STATUS_PAGE,
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessVeryLow,
-                ),
-            )
-        } finally {
-            discoveryGuideVisible = false
-        }
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(196.dp),
-    ) {
-        VerticalPager(
-            state = pagerState,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = MainScreenHorizontalPadding),
-            pageSpacing = 12.dp,
-        ) { page ->
-            when (page) {
-                STATUS_PAGE -> StatusCard(
-                    canDrawOverlay = canDrawOverlay,
-                    region = region,
-                    shizukuAvail = shizukuAvail,
-                    batteryOk = batteryOk,
-                    serviceRunning = serviceRunning,
-                    modifier = Modifier.fillMaxSize(),
-                )
-                PRESET_PAGE -> PresetCarouselCard(
-                    presets = presets,
-                    activePresetId = activePresetId,
-                    modelIssuesByPreset = modelIssuesByPreset,
-                    onPresetSelected = onPresetSelected,
-                    onPresetBlocked = onPresetBlocked,
-                    showHorizontalDiscoveryHint =
-                        showPresetCarouselDiscoveryHint &&
-                            pagerState.settledPage == PRESET_PAGE,
-                    onHorizontalCarouselSeen = onPresetCarouselSeen,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
-        }
-        Column(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .padding(end = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            repeat(STATUS_PRESET_PAGE_COUNT) { page ->
-                Surface(
-                    modifier = Modifier.size(
-                        width = 6.dp,
-                        height = if (page == pagerState.currentPage) 16.dp else 6.dp,
-                    ),
-                    shape = CircleShape,
-                    color = if (page == pagerState.currentPage) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.outlineVariant
-                    },
-                ) {}
-            }
-        }
-        if (discoveryGuideVisible) {
-            SwipeUpGuide(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .size(width = 64.dp, height = 148.dp),
-            )
-        }
-    }
-}
 
 private const val STATUS_PRESET_PAGE_COUNT = 2
 private const val STATUS_PAGE = 0
@@ -1900,6 +1534,8 @@ internal fun shouldRunMainStatusPresetHint(
 
 internal fun mainStatusPresetPageWasSeen(settledPage: Int, pageCount: Int): Boolean =
     pageCount > PRESET_PAGE && settledPage == PRESET_PAGE
+
+@Composable
 
 @Composable
 private fun StatusCard(
@@ -1961,6 +1597,8 @@ private fun StatusCard(
 }
 
 @Composable
+
+@Composable
 internal fun PresetCarouselCard(
     presets: List<TranslationPreset>,
     activePresetId: String,
@@ -2017,6 +1655,8 @@ internal fun PresetCarouselCard(
         }
     }
 }
+
+@Composable
 
 @Composable
 internal fun PresetCarousel(
@@ -2416,6 +2056,8 @@ internal fun presetCarouselScale(pageOffset: Float): Float =
     1f - abs(pageOffset.coerceIn(-1f, 1f)) * 0.08f
 
 @Composable
+
+@Composable
 private fun StatusRow(label: String, ok: Boolean, detail: String? = null) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -2441,6 +2083,8 @@ private fun StatusRow(label: String, ok: Boolean, detail: String? = null) {
         )
     }
 }
+
+@Composable
 
 @Composable
 private fun ActionCard(
@@ -2479,44 +2123,72 @@ private fun ActionCard(
  * - 不挡 [AlertDialog]：Dialog 是独立 Window 层，会盖在这个遮罩之上。
  */
 @Composable
-private fun AutoUpdateCheckOverlay() {
-    val source = remember { MutableInteractionSource() }
-    Box(
+private fun PlainTextAction(text: String, onClick: () -> Unit) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyLarge,
+        color = MaterialTheme.colorScheme.primary,
         modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.45f))
-            .clickable(interactionSource = source, indication = null) { /* 吞点击 */ },
-        contentAlignment = Alignment.Center
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 2.dp, vertical = 10.dp),
+    )
+}
+
+@Composable
+internal fun AboutContent(
+    onOpenLegalNotices: () -> Unit,
+    onShareApp: () -> Unit,
+) {
+    val context = LocalContext.current
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            CircularProgressIndicator(color = Color.White)
-            Text(
-                text = stringResource(R.string.update_auto_checking),
-                color = Color.White
-            )
-        }
+        OutlinedButton(
+            onClick = {
+                runCatching {
+                    context.startActivity(
+                        Intent(Intent.ACTION_VIEW, Uri.parse(GITHUB_URL))
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text(stringResource(R.string.settings_about_open_github)) }
+        OutlinedButton(
+            onClick = {
+                runCatching {
+                    context.startActivity(
+                        Intent(Intent.ACTION_VIEW, Uri.parse(USER_GUIDE_URL))
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text(stringResource(R.string.settings_about_user_guide)) }
+        OutlinedButton(
+            onClick = onOpenLegalNotices,
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text(stringResource(R.string.settings_about_view_licenses)) }
+        OutlinedButton(
+            onClick = onShareApp,
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text(stringResource(R.string.settings_about_share_action)) }
+        OutlinedButton(
+            onClick = {
+                runCatching {
+                    context.startActivity(
+                        Intent(Intent.ACTION_VIEW, Uri.parse(QQ_GROUP_URL))
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text(stringResource(R.string.settings_about_join_qq_group)) }
     }
 }
 
-private val MainScreenHorizontalPadding = 16.dp
-
-internal fun openOverlayPermissionSettings(context: Context) {
-    val appSpecificIntent = Intent(
-        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-        Uri.parse("package:${context.packageName}"),
-    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    if (runCatching { context.startActivity(appSpecificIntent) }.isFailure) {
-        context.startActivity(
-            Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        )
-    }
-}
-
-@HiltViewModel
 class MainViewModel @Inject constructor(
     private val repo: SettingsRepository,
     galleryTranslationRepository: GalleryTranslationRepository,
