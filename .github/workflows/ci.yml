@@ -35,8 +35,20 @@ jobs:
       - name: Set up Gradle (with cache)
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Generate Gradle wrapper jar
-        run: gradle wrapper --gradle-version 8.10.2 --distribution-type bin
+      # Gradle 发行包（约 130MB）缓存到 ~/.gradle/wrapper/dists，避免每次 CI 重新下载。
+      - name: Cache Gradle distribution
+        uses: actions/cache@v4
+        with:
+          path: ~/.gradle/wrapper/dists
+          key: gradle-dists-${{ runner.os }}-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
+
+      # wrapper jar 与脚本已入库，这里只补可执行位；万一 jar 缺失再重新生成（防回归）。
+      - name: Prepare Gradle wrapper
+        run: |
+          chmod +x gradlew
+          if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
+            gradle wrapper --gradle-version 8.10.2 --distribution-type bin
+          fi
 
       - name: Stub local.properties
         run: |
@@ -44,8 +56,28 @@ jobs:
             echo "sdk.dir=$ANDROID_HOME" > local.properties
           fi
 
+      # 用固定的 release keystore 给 debug 包签名（secret 存在时），保证每次构建签名一致、可覆盖安装。
+      # secret 缺失（如外部 fork）时跳过，自动回退 Android 默认 debug 签名，不破坏构建。
+      - name: Decode signing keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "No keystore secret; using default debug signature."
+            exit 0
+          fi
+          mkdir -p "$RUNNER_TEMP/keystore"
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/keystore/release.jks"
+          echo "RELEASE_KEYSTORE_PATH=$RUNNER_TEMP/keystore/release.jks" >> "$GITHUB_ENV"
+
       - name: Assemble debug
-        run: ./gradlew --no-daemon assembleDebug lint
+        env:
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          LANG: C.UTF-8
+          LC_ALL: C.UTF-8
+        run: ./gradlew --no-daemon assembleDebug
 
       - name: Upload debug APK
         if: success()
@@ -55,6 +87,17 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+      # 测试源码（约 6 万行）的 lint 分析要 4 分钟以上，且不面向发布产物，排除；
+      # 主源码与各模块的 lint 照常运行。
+      - name: Lint
+        env:
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          LANG: C.UTF-8
+          LC_ALL: C.UTF-8
+        run: ./gradlew --no-daemon lint -x lintAnalyzeDebugUnitTest -x lintAnalyzeDebugAndroidTest
 
       - name: Upload lint report (on failure)
         if: failure()

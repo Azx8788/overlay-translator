@@ -708,6 +708,7 @@ fun SettingsScreen(
     var preInvert by remember { mutableStateOf(false) }
     var preBinarize by remember { mutableStateOf(false) }
     var a11yVolume by remember { mutableStateOf(false) }
+    var a11yTextSource by remember { mutableStateOf(false) }
     var floatingSize by remember { mutableStateOf(56f) }
     var floatingAlpha by remember { mutableStateOf(Settings().floatingButtonAlpha) }
     var floatingSnapEdge by remember { mutableStateOf(true) }
@@ -1149,6 +1150,7 @@ fun SettingsScreen(
         llmMirrorChoice = s.localLlmMirror
         llmMirror = s.localLlmMirrorUrl
         a11yVolume = s.a11yVolumeTrigger
+        a11yTextSource = s.a11yTextSourceEnabled
         floatingSize = s.floatingButtonSizeDp.toFloat()
         floatingAlpha = normalizedFloatingButtonAlpha(s.floatingButtonAlpha)
         floatingSnapEdge = s.floatingButtonSnapToEdge
@@ -1503,6 +1505,7 @@ fun SettingsScreen(
         tencentOcrEndpoint = tencentEndpoint,
         tencentOcrLanguage = tencentLanguage,
         a11yVolumeTrigger = a11yVolume,
+        a11yTextSourceEnabled = a11yTextSource,
         translatorEngine = effectiveTranslatorEngine(),
         deeplApiKey = deeplKey,
         deeplPro = deeplPro,
@@ -1752,6 +1755,7 @@ fun SettingsScreen(
             tencentLanguage = tencentLanguage,
             preprocess = PreprocessOptions(preUpscale, preInvert, preBinarize),
             a11yVolume = a11yVolume,
+            a11yTextSource = a11yTextSource,
             floatingButtonSizeDp = floatingSize.toInt(),
             floatingButtonAlpha = floatingAlpha,
             floatingButtonSnapToEdge = floatingSnapEdge,
@@ -2927,6 +2931,7 @@ fun SettingsScreen(
             preInvert = s.preprocess.invert
             preBinarize = s.preprocess.binarize
             a11yVolume = s.a11yVolumeTrigger
+            a11yTextSource = s.a11yTextSourceEnabled
             floatingSize = s.floatingButtonSizeDp.toFloat()
             floatingAlpha = normalizedFloatingButtonAlpha(s.floatingButtonAlpha)
             floatingSnapEdge = s.floatingButtonSnapToEdge
@@ -3157,11 +3162,9 @@ fun SettingsScreen(
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     EngineChip(overlayTheme, OverlayTheme.CLASSIC_DARK, stringResource(R.string.settings_theme_classic_dark)) { overlayTheme = it }
-                    EngineChip(overlayTheme, OverlayTheme.AMBER_GOLD, stringResource(R.string.settings_theme_amber_gold)) { overlayTheme = it }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     EngineChip(overlayTheme, OverlayTheme.PAPER_LIGHT, stringResource(R.string.settings_theme_paper_light)) { overlayTheme = it }
-                    EngineChip(overlayTheme, OverlayTheme.FROST_GLASS, stringResource(R.string.settings_theme_frost_glass)) { overlayTheme = it }
                     EngineChip(overlayTheme, OverlayTheme.CUSTOM, stringResource(R.string.settings_theme_custom)) { overlayTheme = it }
                 }
                 if (overlayTheme == OverlayTheme.CUSTOM) {
@@ -4777,6 +4780,13 @@ fun SettingsScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.alpha(if (ocrSectionDisabled) 0.5f else 1f)
                 ) {
+                SwitchRow(
+                    label = stringResource(R.string.settings_a11y_text_source_label),
+                    checked = a11yTextSource,
+                    enabled = !ocrSectionDisabled,
+                    helpText = stringResource(R.string.settings_a11y_text_source_hint),
+                ) { a11yTextSource = it }
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                 // Manual chips and automatic routing share the same names, groups and order.
                 OcrEngineGroup.entries.forEach { group ->
                     Text(
@@ -5354,9 +5364,7 @@ fun SettingsScreen(
                 val overlayThemeLabel = stringResource(
                     when (overlayTheme) {
                         OverlayTheme.CLASSIC_DARK -> R.string.settings_theme_classic_dark
-                        OverlayTheme.AMBER_GOLD -> R.string.settings_theme_amber_gold
                         OverlayTheme.PAPER_LIGHT -> R.string.settings_theme_paper_light
-                        OverlayTheme.FROST_GLASS -> R.string.settings_theme_frost_glass
                         OverlayTheme.CUSTOM -> R.string.settings_theme_custom
                     }
                 )
@@ -6550,6 +6558,8 @@ fun SettingsScreen(
                     settingsSearchEntryId(R.string.settings_search_item_source_lang) to sourceLang,
                     settingsSearchEntryId(R.string.settings_search_item_target_lang) to targetLang,
                     settingsSearchEntryId(R.string.settings_search_item_ocr_switch) to ocrEngine.name,
+                    settingsSearchEntryId(R.string.settings_search_item_a11y_text_source) to
+                        if (a11yTextSource) "on" else "off",
                     settingsSearchEntryId(R.string.settings_translation_output_layout_label) to
                         "${translationOutputLayout.name} ${translationOutputDirection.name}",
                     settingsSearchEntryId(R.string.settings_search_item_render_mode) to renderMode.name,
@@ -9085,12 +9095,8 @@ private fun overlayThemeColors(
 ): ThemeColors = when (theme) {
     OverlayTheme.CLASSIC_DARK ->
         ThemeColors(bg = 0xE6000000.toInt(), fg = 0xFFFFFFFF.toInt(), border = 0, borderDp = 0)
-    OverlayTheme.AMBER_GOLD ->
-        ThemeColors(bg = 0xF0241608.toInt(), fg = 0xFFFFD27F.toInt(), border = 0xFFB8860B.toInt(), borderDp = 2)
     OverlayTheme.PAPER_LIGHT ->
         ThemeColors(bg = 0xF0F5EFE0.toInt(), fg = 0xFF3E2A1F.toInt(), border = 0xFFB68850.toInt(), borderDp = 1)
-    OverlayTheme.FROST_GLASS ->
-        ThemeColors(bg = 0xCC1E293B.toInt(), fg = 0xFFE0F2FE.toInt(), border = 0xFF60A5FA.toInt(), borderDp = 1)
     OverlayTheme.CUSTOM ->
         ThemeColors(bg = customBg, fg = customFg, border = customBorder, borderDp = customBorderW.coerceAtLeast(0))
 }
@@ -9202,6 +9208,7 @@ private val SEARCH_TARGET_PROMPTS = intArrayOf(
     R.string.settings_openai_request_options_title,
 )
 private val SEARCH_TARGET_OCR_ENGINE = intArrayOf(
+    R.string.settings_search_item_a11y_text_source,
     R.string.settings_search_item_ocr_switch,
     R.string.settings_search_item_paddle_ai_studio,
     R.string.settings_search_item_paddle_download,
@@ -9603,6 +9610,15 @@ private val SETTING_ITEMS: List<SearchEntry> = listOfNotNull(
     SearchEntry(
         SectionKeys.OCR,
         R.string.settings_section_ocr,
+        R.string.settings_search_item_a11y_text_source,
+        listOf(
+            "无障碍", "a11y", "accessibility", "精准取字", "取字", "免截图", "免 OCR",
+            "no ocr", "text source", "节点", "控件", "文本节点",
+        ),
+    ),
+    SearchEntry(
+        SectionKeys.OCR,
+        R.string.settings_section_ocr,
         R.string.settings_search_item_ocr_switch,
         listOf("ML Kit", "百度", "腾讯", "Paddle", "OCR engine"),
         optionLabelResIds = listOf(
@@ -9687,12 +9703,10 @@ private val SETTING_ITEMS: List<SearchEntry> = listOfNotNull(
         SectionKeys.OVERLAY,
         R.string.settings_overlay_rendering_title,
         R.string.settings_search_item_overlay_theme,
-        listOf("深色", "浅色", "纸张", "霜玻璃", "琥珀", "theme", "dark", "light", "frost", "amber"),
+        listOf("深色", "浅色", "纸张", "theme", "dark", "light"),
         optionLabelResIds = listOf(
             R.string.settings_theme_classic_dark,
-            R.string.settings_theme_amber_gold,
             R.string.settings_theme_paper_light,
-            R.string.settings_theme_frost_glass,
             R.string.settings_theme_custom,
         ),
     ),

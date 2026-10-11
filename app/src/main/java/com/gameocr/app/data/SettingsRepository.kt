@@ -138,6 +138,7 @@ class SettingsRepository internal constructor(
         val BaiduKey = stringPreferencesKey("baidu_api_key")
         val BaiduSecret = stringPreferencesKey("baidu_secret_key")
         val A11yVolume = booleanPreferencesKey("a11y_volume_trigger")
+        val A11yTextSource = booleanPreferencesKey("a11y_text_source_enabled")
         val TencentId = stringPreferencesKey("tencent_secret_id")
         val TencentKey = stringPreferencesKey("tencent_secret_key")
         val TencentRegion = stringPreferencesKey("tencent_region")
@@ -793,6 +794,7 @@ class SettingsRepository internal constructor(
             prefs.putSecure(Keys.BaiduKey, next.baiduOcrApiKey)
             prefs.putSecure(Keys.BaiduSecret, next.baiduOcrSecretKey)
             prefs[Keys.A11yVolume] = next.a11yVolumeTrigger
+            prefs[Keys.A11yTextSource] = next.a11yTextSourceEnabled
             prefs.putSecure(Keys.TencentId, next.tencentSecretId)
             prefs.putSecure(Keys.TencentKey, next.tencentSecretKey)
             prefs[Keys.TencentRegion] = next.tencentRegion
@@ -1132,6 +1134,7 @@ class SettingsRepository internal constructor(
             baiduOcrApiKey = secureString(Keys.BaiduKey, default.baiduOcrApiKey),
             baiduOcrSecretKey = secureString(Keys.BaiduSecret, default.baiduOcrSecretKey),
             a11yVolumeTrigger = this[Keys.A11yVolume] ?: default.a11yVolumeTrigger,
+            a11yTextSourceEnabled = this[Keys.A11yTextSource] ?: default.a11yTextSourceEnabled,
             tencentSecretId = secureString(Keys.TencentId, default.tencentSecretId),
             tencentSecretKey = secureString(Keys.TencentKey, default.tencentSecretKey),
             tencentRegion = this[Keys.TencentRegion] ?: default.tencentRegion,

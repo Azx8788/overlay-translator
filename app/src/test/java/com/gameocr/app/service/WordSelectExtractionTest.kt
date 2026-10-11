@@ -62,7 +62,7 @@ class WordSelectExtractionTest {
             "logRepository.pair(",
         ).forEach { marker -> assertTrue("no translation work in extraction: $marker", pipeline.indexOf(marker) > boundary) }
         listOf(
-            "image preparation is bypassed" to pipeline.contains("if (extractTextOnly) settings else prepareVisualTranslationSettings("),
+            "image preparation is bypassed" to pipeline.contains("if (extractTextOnly || croppedBitmap == null) settings else prepareVisualTranslationSettings("),
             "card is explicitly extraction only" to pipeline.contains("textOnly = extractTextOnly"),
             "word lookup is off" to pipeline.contains("if (!extractTextOnly && settings.dictionaryTapLookupEnabled)"),
             "correction is off" to pipeline.contains("onCorrectTranslation = if (extractTextOnly) null else"),

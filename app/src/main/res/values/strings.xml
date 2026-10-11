@@ -695,9 +695,7 @@
     <string name="settings_overlay_adaptive_layout_locked">When enabled, placement is fixed to overlap with zero offsets, wrapping enabled, and collision avoidance disabled. Turning it off restores the saved layout.</string>
     <string name="settings_overlay_theme_label">Overlay theme</string>
     <string name="settings_theme_classic_dark">Classic dark</string>
-    <string name="settings_theme_amber_gold">Amber gold</string>
     <string name="settings_theme_paper_light">Paper light</string>
-    <string name="settings_theme_frost_glass">Frost glass</string>
     <string name="settings_theme_custom">Custom</string>
     <string name="settings_textsize_label_format">Text size: %1$d sp</string>
     <string name="settings_text_style_label">Translation text style</string>
@@ -938,6 +936,12 @@
     <string name="settings_search_item_merge_adjacent">Merge adjacent boxes</string>
     <string name="settings_search_item_loop_interval">Auto-loop interval</string>
     <string name="settings_search_item_a11y_volume">Volume key trigger</string>
+    <string name="settings_search_item_a11y_text_source">Accurate text reading (accessibility)</string>
+    <string name="settings_a11y_text_source_label">Accurate text reading (accessibility)</string>
+    <string name="settings_a11y_text_source_hint">Reads text straight from the screen controls: no screenshot, no OCR and no capture permission needed. Nothing gets misrecognized and translation starts almost instantly. Works in apps that really expose text (chat, browser, news, settings); games, manga and visual novels draw text as pixels, so those screens fall back to the OCR engine below. Loop translation still uses OCR.</string>
+    <string name="settings_a11y_text_source_fallback">No readable text on screen; fell back to screenshot OCR</string>
+    <string name="settings_a11y_text_source_no_capture">No readable text on screen, and the capture service is not running</string>
+    <string name="settings_a11y_text_source_service_off">Accessibility service is off; used screenshot OCR this time. Turn it on in system accessibility settings.</string>
     <string name="settings_search_item_api_timeout">API request timeout</string>
     <string name="settings_search_item_youdao_pictrans">Youdao image translation (AppKey / Secret)</string>
     <string name="settings_search_item_google">Google Translate</string>

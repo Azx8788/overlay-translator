@@ -195,6 +195,11 @@ data class Settings(
     /** PaddleOCR doc-orientation ONNX model mirror. Empty = official HuggingFace source. */
     val orientationModelMirrorUrl: String = "",
     val a11yVolumeTrigger: Boolean = false,
+    /**
+     * 优先用无障碍节点树取字（不截图、不跑 OCR）。读不到文字的界面（游戏 / 漫画 / 视小说画布）
+     * 会自动回退到 [ocrEngine]；循环翻译仍走 OCR。
+     */
+    val a11yTextSourceEnabled: Boolean = false,
     val translatorEngine: TranslatorEngine = TranslatorEngine.OPENAI,
     val translationGlossaryEnabled: Boolean = true,
     /** Master gate for source-preservation matching; individual entry states remain untouched. */
@@ -1763,7 +1768,7 @@ enum class FloatingWindowContentMode {
 
 /**
  * 悬浮窗口边框样式。SOLID 是默认（跟 CSS `border-style: solid` 等价）。
- * 仅在主题本身有 stroke 时生效（AMBER_GOLD / PAPER_LIGHT / FROST_GLASS / CUSTOM with width>0）；
+ * 仅在主题本身有 stroke 时生效（PAPER_LIGHT / CUSTOM with width>0）；
  * CLASSIC_DARK 默认无边，选啥样式都不画。
  */
 @Serializable
@@ -1822,16 +1827,30 @@ internal fun Settings.effectiveOverlayRenderSettings(): Settings =
         this
     }
 
-@Serializable
+@Serializable(with = OverlayThemeSerializer::class)
 enum class OverlayTheme {
     /** 经典深色：黑底白字。 */
     CLASSIC_DARK,
-    /** 琥珀黑金：深棕底 + 暖金字（galgame 老派对话框感）。 */
-    AMBER_GOLD,
     /** 浅色纸张：米色底 + 深褐字（漫画译文风）。 */
     PAPER_LIGHT,
-    /** 半透明霜玻璃：蓝灰底 + 浅蓝字。 */
-    FROST_GLASS,
     /** 自定义：bg/fg/border/border 粗细全由用户设置。 */
     CUSTOM
 }
+
+/**
+ * 解码容错：旧导出 / 旧预设 / 旧设置里可能仍写着已下线的主题名（AMBER_GOLD、FROST_GLASS），
+ * 直接按名字查枚举会让整份预设列表解码失败、老数据整体失效。这里把未知值统一回退到
+ * [OverlayTheme.CLASSIC_DARK]，保证升级平滑。
+ */
+object OverlayThemeSerializer : KSerializer<OverlayTheme> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("OverlayTheme", PrimitiveKind.STRING)
+
+    override fun serialize(encoder: Encoder, value: OverlayTheme) = encoder.encodeString(value.name)
+
+    override fun deserialize(decoder: Decoder): OverlayTheme =
+        parseOverlayTheme(decoder.decodeString())
+}
+
+internal fun parseOverlayTheme(raw: String): OverlayTheme =
+    runCatching { OverlayTheme.valueOf(raw.trim()) }.getOrDefault(OverlayTheme.CLASSIC_DARK)

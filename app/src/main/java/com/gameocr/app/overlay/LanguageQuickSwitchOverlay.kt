@@ -518,40 +518,30 @@ class LanguageQuickSwitchOverlay(context: Context) {
 
     private fun themeBgColor(theme: OverlayTheme, s: Settings): Int = when (theme) {
         OverlayTheme.CLASSIC_DARK -> 0xE6000000.toInt()
-        OverlayTheme.AMBER_GOLD -> 0xF0241608.toInt()
         OverlayTheme.PAPER_LIGHT -> 0xF0F5EFE0.toInt()
-        OverlayTheme.FROST_GLASS -> 0xCC1E293B.toInt()
         OverlayTheme.CUSTOM -> s.customBgColor
     }
 
     private fun themeFgColor(theme: OverlayTheme, s: Settings): Int = when (theme) {
         OverlayTheme.CLASSIC_DARK -> 0xFFFFFFFF.toInt()
-        OverlayTheme.AMBER_GOLD -> 0xFFFFD27F.toInt()
         OverlayTheme.PAPER_LIGHT -> 0xFF3E2A1F.toInt()
-        OverlayTheme.FROST_GLASS -> 0xFFE0F2FE.toInt()
         OverlayTheme.CUSTOM -> s.customFgColor
     }
 
     private fun themeFgMutedColor(theme: OverlayTheme, s: Settings): Int = when (theme) {
         OverlayTheme.CLASSIC_DARK -> 0xCCB0BEC5.toInt()
-        OverlayTheme.AMBER_GOLD -> 0xCCB68850.toInt()
         OverlayTheme.PAPER_LIGHT -> 0xCC8B6F47.toInt()
-        OverlayTheme.FROST_GLASS -> 0xCC94A3B8.toInt()
         OverlayTheme.CUSTOM -> (s.customFgColor and 0x00FFFFFF) or 0xB0000000.toInt()
     }
 
     private fun themeAccentColor(theme: OverlayTheme, s: Settings): Int = when (theme) {
         OverlayTheme.CLASSIC_DARK -> 0xFF90CAF9.toInt()
-        OverlayTheme.AMBER_GOLD -> 0xFFB8860B.toInt()
         OverlayTheme.PAPER_LIGHT -> 0xFFB68850.toInt()
-        OverlayTheme.FROST_GLASS -> 0xFF60A5FA.toInt()
         OverlayTheme.CUSTOM -> if (s.customBorderColor != 0) s.customBorderColor else s.customFgColor
     }
 
     private fun themeStroke(theme: OverlayTheme, s: Settings): Pair<Int, Int> = when (theme) {
-        OverlayTheme.AMBER_GOLD -> 2 to 0xFFB8860B.toInt()
         OverlayTheme.PAPER_LIGHT -> 1 to 0xFFB68850.toInt()
-        OverlayTheme.FROST_GLASS -> 1 to 0xFF60A5FA.toInt()
         OverlayTheme.CUSTOM -> if (s.customBorderWidth > 0) s.customBorderWidth to s.customBorderColor else 0 to 0
         else -> 0 to 0
     }

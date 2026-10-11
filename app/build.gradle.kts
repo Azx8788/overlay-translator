@@ -98,6 +98,11 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             isDebuggable = true
+            // 有 release keystore（CI 注入环境变量）时，debug 包也用它签名，保证每次构建签名一致、
+            // 可直接覆盖安装；本地无 keystore 时自动回退 Android 默认 debug 签名，不影响本地开发。
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
